@@ -11,5 +11,5 @@ else:
 
 DATA_DIR = ROOT_DIR / "data"
 RAW_DATA_DIR = DATA_DIR / "raw"
-PROCESSED_DATA_DIR = DATA_DIR / "data/processed"
+PROCESSED_DATA_DIR = DATA_DIR / "processed"
 # MODEL_DIR = ROOT_DIR / "models_saved"
