@@ -23,21 +23,16 @@ class SubstitutionCipherSolver(pl.LightningModule):
         logits = self.model(src, tgt_input)
         return logits
 
-    def training_step(self, batch):
+    def training_step(self, batch, batch_idx):
         src, tgt_input, tgt_output = batch
 
         logits = self(src, tgt_input) # [batch, seq_len, vocab]
-        loss = self.loss(logits.view(-1, self.hparams.vocab_size), tgt_output.view(-1))
+        loss = self.loss(logits.view(-1, self.hparams.vocab_size), tgt_output.view(-1)) # loss hesaplama (CrossEntropyLoss için flattening yapılıyor)
 
-        self.log("Train loss: ", loss, prog_bar=True)
+        self.log("train_loss", loss, prog_bar=True, on_step=False, on_epoch=True)
         return loss
 
-
-    def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr= self.lr)
-        return optimizer
-
-    def validation_step(self, batch):
+    def validation_step(self, batch, batch_idx):
         src, tgt_input, tgt_output = batch
         logits = self(src, tgt_input)
         loss = self.loss(logits.view(-1, self.hparams.vocab_size), tgt_output.view(-1))
@@ -46,13 +41,25 @@ class SubstitutionCipherSolver(pl.LightningModule):
         acc = self.accuracy(preds.view(-1), tgt_output.view(-1))
 
         self.log("val_loss: ", loss, prog_bar=True, on_epoch=True)
-        self.log("val_acc: ", acc, prog_bar=True)
+        self.log("val_acc: ", acc, prog_bar=True, on_epoch=True)
 
         return loss
-    
-    def on_validation_epoch_end(self):
-        print(f"\nEpoch bitti! Son Accuracy: {self.accuracy.compute():.4f}")
-        self.accuracy.reset()
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr= self.lr)
+        schedular = {
+            'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer, 
+                mode='min', 
+                factor=0.5, 
+                patience=2, 
+                verbose=True
+            ),
+            'monitor': 'val_loss', #val_loss izlenecek
+            'interval': 'epoch',
+            'frequency': 1
+        }
+        return [optimizer], [schedular]
 
 
 
