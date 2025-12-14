@@ -1,0 +1,59 @@
+import torch
+import torch.nn as nn
+import pytorch_lightning as pl
+import torchmetrics
+
+from models.substitution.substitution_lstm import SubstitutionLSTM
+
+class SubstitutionCipherSolver(pl.LightningModule):
+    def __init__(self, vocab_size=33, embed_dim=128, hidden_size=256, lr= 0.001):
+        super().__init__()
+        self.save_hyperparameters()
+        self.model = SubstitutionLSTM(
+            vocab_size=vocab_size, 
+            embed_dim=embed_dim, 
+            hidden_size=hidden_size
+        )
+        self.loss = nn.CrossEntropyLoss(ignore_index=0) # PAD indexini ignore ediyoruz
+        self.accuracy = torchmetrics.Accuracy(task="multiclass", num_classes=vocab_size, ignore_index=0)
+        self.lr = lr
+
+    def forward(self, src, tgt_input):
+        """burda alınan parametreler işleme sonrasında substitution modele devredilecek"""
+        logits = self.model(src, tgt_input)
+        return logits
+
+    def training_step(self, batch):
+        src, tgt_input, tgt_output = batch
+
+        logits = self(src, tgt_input) # [batch, seq_len, vocab]
+        loss = self.loss(logits.view(-1, self.hparams.vocab_size), tgt_output.view(-1))
+
+        self.log("Train loss: ", loss, prog_bar=True)
+        return loss
+
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr= self.lr)
+        return optimizer
+
+    def validation_step(self, batch):
+        src, tgt_input, tgt_output = batch
+        logits = self(src, tgt_input)
+        loss = self.loss(logits.view(-1, self.hparams.vocab_size), tgt_output.view(-1))
+
+        preds = torch.argmax(logits, dim=-1) #
+        acc = self.accuracy(preds.view(-1), tgt_output.view(-1))
+
+        self.log("val_loss: ", loss, prog_bar=True, on_epoch=True)
+        self.log("val_acc: ", acc, prog_bar=True)
+
+        return loss
+    
+    def on_validation_epoch_end(self):
+        print(f"\nEpoch bitti! Son Accuracy: {self.accuracy.compute():.4f}")
+        self.accuracy.reset()
+
+
+
+

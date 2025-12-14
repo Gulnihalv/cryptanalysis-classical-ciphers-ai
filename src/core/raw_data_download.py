@@ -25,7 +25,7 @@ def download_tr_wikipedia():
     ds = load_dataset(
         "wikimedia/wikipedia",
         "20231101.tr",
-        split="train[:1%]"
+        split="train[:2%]"
     )
 
     ds_text = ds['text']

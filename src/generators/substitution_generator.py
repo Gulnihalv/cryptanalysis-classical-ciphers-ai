@@ -9,8 +9,9 @@ class SubstutionDataGenerator(Dataset):
         self.PAD_TOKEN = "<PAD>"
         self.SOS_TOKEN = "<SOS>"
         self.EOS_TOKEN = "<EOS>"
+        self.space = " "
 
-        self.special_tokens = [self.PAD_TOKEN, self.SOS_TOKEN, self.EOS_TOKEN]
+        self.special_tokens = [self.PAD_TOKEN, self.SOS_TOKEN, self.EOS_TOKEN, self.space]
         self.full_alphabet = self.special_tokens + list(alphabet)
 
         self.seq_len = seq_len
@@ -58,7 +59,7 @@ class SubstutionDataGenerator(Dataset):
     
     def generate_random_key(self):
         #harfleri karıştırıp dict olarak dönüyoruz. Ve özel tokenları çıkarıyoruz.
-        real_chars = self.full_alphabet[3:]
+        real_chars = self.full_alphabet[4:]
         shuffled = list(real_chars)
         random.shuffle(shuffled)
         return {src: target for src, target in zip(real_chars, shuffled)}
