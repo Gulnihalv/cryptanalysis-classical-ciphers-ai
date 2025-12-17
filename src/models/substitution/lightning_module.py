@@ -40,8 +40,8 @@ class SubstitutionCipherSolver(pl.LightningModule):
         preds = torch.argmax(logits, dim=-1) #
         acc = self.accuracy(preds.view(-1), tgt_output.view(-1))
 
-        self.log("val_loss: ", loss, prog_bar=True, on_epoch=True)
-        self.log("val_acc: ", acc, prog_bar=True, on_epoch=True)
+        self.log("val_loss", loss, prog_bar=True, on_epoch=True)
+        self.log("val_acc", acc, prog_bar=True, on_epoch=True)
 
         return loss
 
@@ -53,7 +53,6 @@ class SubstitutionCipherSolver(pl.LightningModule):
                 mode='min', 
                 factor=0.5, 
                 patience=2, 
-                verbose=True
             ),
             'monitor': 'val_loss', #val_loss izlenecek
             'interval': 'epoch',

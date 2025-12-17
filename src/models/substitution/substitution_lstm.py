@@ -6,7 +6,7 @@ class SubstitutionLSTM(nn.Module):
         """not: vocab_size dediğim 29 + 4 yani modele girdi özel karakterler dahil karakter sayısı."""
         super().__init__()
 
-        self.embedding = nn.Embedding(vocab_size= vocab_size, embedding_dim= embed_dim, padding_idx=0)
+        self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
 
         #encoder: Bu geleceği görebilir BiLSTM (bidirectional olan kısım)
         self.encoder = nn.LSTM(
@@ -42,7 +42,7 @@ class SubstitutionLSTM(nn.Module):
         combined = torch.cat((encoder_out, tgt_embedding), dim=2) # output: [batch, seq, hidden*2+embed]
 
         #decoder
-        decoder_out, _ = self.decoder(combined) #tuple dönüyor ama biz sadece output kısmını alıyoruz. hidden_state almıyoruz
+        decoder_out, _ = self.decoder(combined) #tuple dönüyor ama biz sadece output kısmını alıyoruz. hidden_state almıyoruz 512 +128 = 640
 
         #logits
         logits = self.fc(decoder_out) # output: [batch, seq, vocab] burda artık karakter çıkıyor(vocab)
