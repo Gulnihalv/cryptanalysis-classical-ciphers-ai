@@ -3,7 +3,7 @@ import torch.nn as nn
 import pytorch_lightning as pl
 import torchmetrics
 
-from models.substitution.substitution_lstm import SubstitutionLSTM
+from models.substitution_v1.substitution_lstm import SubstitutionLSTM
 
 class SubstitutionCipherSolver(pl.LightningModule):
     def __init__(self, vocab_size=33, embed_dim=128, hidden_size=256, lr= 0.001):

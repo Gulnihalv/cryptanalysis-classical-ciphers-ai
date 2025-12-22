@@ -49,18 +49,17 @@ def clean_wikipedia_text(text):
     text = re.sub(r'(?<![a-züğışöç])\d{3,4}(?![a-züğışöç])', '', text)
     text = re.sub(r'\b\d+\s*(km|m|cm|mm|kg|g|lt)\b', '', text)
     
-    # Remove common abbreviations
     abbrevs = [
-        r'\bvs\.',  # vesaire
-        r'\bvb\.',  # ve benzeri  
-        r'\bvd\.',  # ve devamı
-        r'\byy\.',  # yüzyıl
-        r'\bs\.',   # sayfa
-        r'\bbkz\.', # bakınız
-        r'\börn\.', # örneğin
-        r'\byak\.', # yaklaşık
-        r'\bdoğ\.', # doğum
-        r'\böl\.',  # ölüm
+        r'\bvs\.',
+        r'\bvb\.',  
+        r'\bvd\.',  
+        r'\byy\.',  
+        r'\bs\.',   
+        r'\bbkz\.', 
+        r'\börn\.', 
+        r'\byak\.', 
+        r'\bdoğ\.', 
+        r'\böl\.',  
     ]
     for abbrev in abbrevs:
         text = re.sub(abbrev, '', text, flags=re.IGNORECASE)
@@ -264,7 +263,7 @@ if __name__ == "__main__":
     
     # Save
     PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    output_file = PROCESSED_DATA_DIR / "wiki_processed_tr2.txt"
+    output_file = PROCESSED_DATA_DIR / "wiki_processed_tr.txt"
     
     with open(output_file, 'w', encoding='utf-8') as file:
         for sent in sentences:

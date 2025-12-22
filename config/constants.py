@@ -11,6 +11,7 @@ S_CONFIG_V1 = {
     'val_split': 0.1                  # Verinin %10'u doğrulama için
 }
 
-alphabet = "abcçdefgğhıijklmnoöprsştuüvyz"
+special_tokens = ["<PAD>", "<SOS>", "<EOS>", " "]
+alphabet = list("abcçdefgğhıijklmnoöprsştuüvyz")
 
 # buraya special tokenlar ve listesi vs de gelecek

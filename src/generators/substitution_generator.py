@@ -52,8 +52,7 @@ class SubstutionDataGenerator(Dataset):
             pos = end_pos
 
         return chunks
-
-
+    
     def __len__(self):
         return len(self.chunks)
     
