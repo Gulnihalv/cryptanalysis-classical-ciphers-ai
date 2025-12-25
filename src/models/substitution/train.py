@@ -1,6 +1,5 @@
 import os
 import sys
-import torch
 from torch.utils.data import DataLoader, random_split
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
@@ -19,7 +18,7 @@ if src_path not in sys.path:
 
 from config.constants import S_CONFIG_V1
 from generators.substitution_generator import SubstutionDataGenerator
-from models.substitution_v1.lightning_module import SubstitutionCipherSolver
+from models.substitution.lightning_module import SubstitutionCipherSolver
 
 def main():
     pl.seed_everything(42)
@@ -70,7 +69,7 @@ def main():
 
     # Callback
     checkpoint_callback = ModelCheckpoint(
-        dirpath='checkpoints',
+        dirpath='checkpoints_v4',
         filename='substitution-{epoch:02d}-{val_loss:.2f}',
         monitor='val_loss',
         mode='min',
@@ -89,14 +88,11 @@ def main():
     # TensorBoard Logları 
     logger = TensorBoardLogger("tb_logs", name="cipher_model")
 
-    RESUME_CHECKPOINT_PATH = "checkpoints/substitution-epoch=39-val_loss=0.22.ckpt"
-
-    NEW_MAX_EPOCHS = 100
+    #RESUME_CHECKPOINT_PATH = "checkpoints/substitution-epoch=39-val_loss=0.22.ckpt"
 
     # Model Eğitimi
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
     trainer = pl.Trainer(
-        max_epochs=NEW_MAX_EPOCHS,
         accelerator="auto",    # GPU varsa kullanır, yoksa CPU
         devices=1,             # 1 GPU kullan
         logger=logger,
@@ -104,9 +100,9 @@ def main():
         log_every_n_steps=10   # Her 10 batch'te bir logla
     )
 
-    #trainer.fit(model, train_loader, val_loader) en baştan başlıyor
-    print(f"Eğitim '{RESUME_CHECKPOINT_PATH}' dosyasından devam ediyor...")
-    trainer.fit(model, train_loader, val_loader, ckpt_path=RESUME_CHECKPOINT_PATH)
+    trainer.fit(model, train_loader, val_loader)
+    # print(f"Eğitim '{RESUME_CHECKPOINT_PATH}' dosyasından devam ediyor...")
+    # trainer.fit(model, train_loader, val_loader, ckpt_path=RESUME_CHECKPOINT_PATH)
 
     print(f"Eğitim tamamlandı! En iyi model şuraya kaydedildi: {checkpoint_callback.best_model_path}")
 

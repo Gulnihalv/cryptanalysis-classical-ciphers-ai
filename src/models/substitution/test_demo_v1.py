@@ -12,7 +12,7 @@ if project_root not in sys.path:
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
-from models.substitution_v1.lightning_module import SubstitutionCipherSolver
+from models.substitution.lightning_module import SubstitutionCipherSolver
 
 ALPHABET_CHARS = "abcçdefgğhıijklmnoöprsştuüvyz"
 PAD_TOKEN = "<PAD>"
@@ -22,7 +22,7 @@ SPACE_TOKEN = " "
 
 SPECIAL_TOKENS = [PAD_TOKEN, SOS_TOKEN, EOS_TOKEN, SPACE_TOKEN]
 FULL_ALPHABET = SPECIAL_TOKENS + list(ALPHABET_CHARS)
-CHECKPOINT_PATH = "checkpoints_v1/substitution-epoch=59-val_loss=0.20.ckpt"
+CHECKPOINT_PATH = "checkpoints_v3/substitution-epoch=43-val_loss=0.20.ckpt"
 
 # Haritalar
 char2idx = {c: i for i, c in enumerate(FULL_ALPHABET)}
@@ -94,7 +94,7 @@ if __name__ == "__main__":
 
 
     try:
-        run_inference(test_text_6)
+        run_inference(test_text_9)
     except FileNotFoundError:
         print("\nDosya bulunamadı")
     except Exception as e:

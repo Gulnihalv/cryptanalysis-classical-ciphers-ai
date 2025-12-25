@@ -12,6 +12,8 @@ class SubstitutionLSTM(nn.Module):
         self.encoder = nn.LSTM(
             input_size=embed_dim,
             hidden_size=hidden_size,
+            num_layers=2, # 1 yeterli gelmediği için 2 ye çıkarrtım
+            dropout= 0.2, # yeni eklendi
             batch_first=True,
             bidirectional=True
         )
@@ -81,6 +83,60 @@ class SubstitutionLSTM(nn.Module):
                 input_t = best
 
         return torch.cat(output, dim=1)
+    
+    def generate_beam(self, src, beam_width=3):
+        """
+        Beam Search ile daha tutarlı cümleler üretir.
+        beam_width: Her adımda akılda tutulacak en iyi n alternatif.
+        """
+        batch_size = src.size(0)
+        if batch_size != 1:
+            raise ValueError("Beam search şimdilik sadece batch_size=1 için yazıldı.")
+
+        src_embedding = self.embedding(src)
+        encoder_out, (h_n, c_n) = self.encoder(src_embedding)
+        
+        sos_id = 1
+        k_beams = [(0.0, torch.tensor([[sos_id]], device=src.device), None, [])]
+        
+        max_len = src.shape[1]
+        
+        for i in range(max_len):
+            candidates = []
+            
+            # Encoder'ın o anki adımı (source her zaman sabit)
+            encoder_step = encoder_out[:, i, :].unsqueeze(1) # [1, 1, hidden*2]
+
+            for score, inp_token, hidden, seq in k_beams:
+                if len(seq) > 0 and seq[-1] == 2: # EOS token
+                    candidates.append((score, inp_token, hidden, seq))
+                    continue
+
+                # Decoder step
+                tgt_embed = self.embedding(inp_token) # [1, 1, embed]
+                decoder_input = torch.cat((encoder_step, tgt_embed), dim=2)
+                
+                decoder_out, new_hidden = self.decoder(decoder_input, hidden)
+                logits = self.fc(decoder_out) # [1, 1, vocab]
+                
+                # LogSoftmax alıyoruz ki skorları toplayabilelim (çarpma yerine toplama daha stabildir)
+                log_probs = torch.nn.functional.log_softmax(logits, dim=2)
+                
+                # En iyi k adayı al
+                topk_probs, topk_ids = torch.topk(log_probs, beam_width)
+                
+                for k in range(beam_width):
+                    next_score = score + topk_probs[0, 0, k].item()
+                    next_token = topk_ids[0, 0, k].view(1, 1)
+                    next_seq = seq + [next_token.item()]
+                    candidates.append((next_score, next_token, new_hidden, next_seq))
+            
+            # Tüm adaylar arasından en iyi beam_width kadarını seç
+            k_beams = sorted(candidates, key=lambda x: x[0], reverse=True)[:beam_width]
+
+        # En iyi sonucu döndür
+        best_seq = k_beams[0][3]
+        return torch.tensor([best_seq], device=src.device)
 
 
 

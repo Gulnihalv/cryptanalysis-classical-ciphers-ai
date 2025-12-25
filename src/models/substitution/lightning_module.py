@@ -3,7 +3,7 @@ import torch.nn as nn
 import pytorch_lightning as pl
 import torchmetrics
 
-from models.substitution_v1.substitution_lstm import SubstitutionLSTM
+from models.substitution.substitution_lstm import SubstitutionLSTM
 
 class SubstitutionCipherSolver(pl.LightningModule):
     def __init__(self, vocab_size=33, embed_dim=128, hidden_size=256, lr= 0.001):
@@ -26,7 +26,21 @@ class SubstitutionCipherSolver(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         src, tgt_input, tgt_output = batch
 
-        logits = self(src, tgt_input) # [batch, seq_len, vocab]
+        prob = 0.3 
+        mask = torch.rand(tgt_input.shape, device=self.device) < prob
+
+        mask[:, 0] = False 
+
+        random_tokens = torch.randint(
+            low=4, 
+            high=self.hparams.vocab_size, 
+            size=tgt_input.shape, 
+            device=self.device
+        )
+
+        noisy_tgt_input = torch.where(mask, random_tokens, tgt_input)
+
+        logits = self(src, noisy_tgt_input) # [batch, seq_len, vocab]
         loss = self.loss(logits.view(-1, self.hparams.vocab_size), tgt_output.view(-1)) # loss hesaplama (CrossEntropyLoss için flattening yapılıyor)
 
         self.log("train_loss", loss, prog_bar=True, on_step=False, on_epoch=True)
@@ -59,6 +73,13 @@ class SubstitutionCipherSolver(pl.LightningModule):
             'frequency': 1
         }
         return [optimizer], [schedular]
+    
+    # Mevcut sınıfının içine ekle
+    def generate_beam(self, src, beam_width=3):
+        """
+         inference aşamasında kullanılacak
+        """
+        return self.model.generate_beam(src, beam_width)
 
 
 

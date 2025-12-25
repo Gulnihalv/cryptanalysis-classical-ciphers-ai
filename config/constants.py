@@ -1,5 +1,5 @@
 S_CONFIG_V1 = {
-    'text_path': 'data/processed/wiki_processed_tr2.txt',     # Veri setinin yolu
+    'text_path': 'data/processed/wiki_processed_tr.txt',     # Veri setinin yolu
     'alphabet': "abcçdefgğhıijklmnoöprsştuüvyz", # Şifrelenecek karakterler
     'seq_len': 250,                   # Chunk uzunluğu
     'batch_size': 32,
