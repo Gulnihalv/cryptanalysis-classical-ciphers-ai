@@ -48,7 +48,22 @@ class SubstitutionCipherSolver(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         src, tgt_input, tgt_output = batch
-        logits = self(src, tgt_input)
+
+        prob = 0.3 
+        mask = torch.rand(tgt_input.shape, device=self.device) < prob
+
+        mask[:, 0] = False 
+
+        random_tokens = torch.randint(
+            low=4, 
+            high=self.hparams.vocab_size, 
+            size=tgt_input.shape, 
+            device=self.device
+        )
+
+        noisy_tgt_input = torch.where(mask, random_tokens, tgt_input)
+        
+        logits = self(src, noisy_tgt_input)
         loss = self.loss(logits.view(-1, self.hparams.vocab_size), tgt_output.view(-1))
 
         preds = torch.argmax(logits, dim=-1) #

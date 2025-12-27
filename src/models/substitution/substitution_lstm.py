@@ -29,8 +29,9 @@ class SubstitutionLSTM(nn.Module):
             bidirectional=False # geleceği görememesi için
         )
 
+        fc_input_dim = hidden_size + (hidden_size * 2) # Artık sadece hidden size (Decoder Hidden) + (Encoder Hidden * 2) alıcak
         # output
-        self.fc = nn.Linear(hidden_size, vocab_size)
+        self.fc = nn.Linear(fc_input_dim, vocab_size)
 
     def forward(self, src, tgt_input):
         """Eğitim sırasında kullanılacak. Burda hem src (bu şifreli veriye karşılık geliyor) hem de teacher input veriliyor"""    
@@ -46,8 +47,11 @@ class SubstitutionLSTM(nn.Module):
         #decoder
         decoder_out, _ = self.decoder(combined) #tuple dönüyor ama biz sadece output kısmını alıyoruz. hidden_state almıyoruz 512 +128 = 640
 
+        # decoder çıktısı ile encoder yani şifreli veri birleştiriliyor
+        final_input = torch.cat((decoder_out, encoder_out), dim=2)
+
         #logits
-        logits = self.fc(decoder_out) # output: [batch, seq, vocab] burda artık karakter çıkıyor(vocab)
+        logits = self.fc(final_input) # output: [batch, seq, vocab] burda artık karakter çıkıyor(vocab)
         return logits
 
     def generate(self, src):
@@ -72,7 +76,8 @@ class SubstitutionLSTM(nn.Module):
                 decoder_input = torch.cat((encoder_step, tgt_embed), dim=2)
                 decoder_out, hidden = self.decoder(decoder_input, hidden) # hidden başlangıçta None.
 
-                logits = self.fc(decoder_out) # [batch, 1, vocab_size]
+                final_input = torch.cat((decoder_out, encoder_step), dim=2)
+                logits = self.fc(final_input) # [batch, 1, vocab_size]
                 best = torch.argmax(logits, dim=2) # [batch, 1]
                 output.append(best)
 
@@ -86,8 +91,7 @@ class SubstitutionLSTM(nn.Module):
     
     def generate_beam(self, src, beam_width=3):
         """
-        Beam Search ile daha tutarlı cümleler üretir.
-        beam_width: Her adımda akılda tutulacak en iyi n alternatif.
+        Daha tutarlı cümleler için beam search deniyoruz
         """
         batch_size = src.size(0)
         if batch_size != 1:
@@ -117,7 +121,9 @@ class SubstitutionLSTM(nn.Module):
                 decoder_input = torch.cat((encoder_step, tgt_embed), dim=2)
                 
                 decoder_out, new_hidden = self.decoder(decoder_input, hidden)
-                logits = self.fc(decoder_out) # [1, 1, vocab]
+
+                final_input = torch.cat((decoder_out, encoder_step), dim=2)
+                logits = self.fc(final_input) # [1, 1, vocab]
                 
                 # LogSoftmax alıyoruz ki skorları toplayabilelim (çarpma yerine toplama daha stabildir)
                 log_probs = torch.nn.functional.log_softmax(logits, dim=2)

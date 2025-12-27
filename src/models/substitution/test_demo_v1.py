@@ -22,7 +22,7 @@ SPACE_TOKEN = " "
 
 SPECIAL_TOKENS = [PAD_TOKEN, SOS_TOKEN, EOS_TOKEN, SPACE_TOKEN]
 FULL_ALPHABET = SPECIAL_TOKENS + list(ALPHABET_CHARS)
-CHECKPOINT_PATH = "checkpoints_v3/substitution-epoch=43-val_loss=0.20.ckpt"
+CHECKPOINT_PATH = "checkpoints_v4/substitution-epoch=62-val_loss=0.19.ckpt"
 
 # Haritalar
 char2idx = {c: i for i, c in enumerate(FULL_ALPHABET)}
@@ -80,7 +80,6 @@ def run_inference(input_text):
     
     print(f"Model Tahmini:  {decoded_text}")
 
-
 if __name__ == "__main__":
     test_text_1 = "bilim tarihi sürecinde bu tip sahnelere sürekli tanık olmuş deney ve gözlem sonucunda çöken kanunların yerini başkaları almıştır gerçek ve varlığın amacını soruşturan felsefe sistematik düşünmeyi gerektirmektedir din odaklı orta çağ felsefesinde hristiyanlığın kendisine bir aracı olarak kullandığı felsefe tanrı bilgi inanç eksenlerinde yoğun şekilde kullanılmıştır aydınlanma çağında yapılan felsefede akıl ön plana çıkmıştır"
     test_text_2 = "türkiye avrupa ve asya kıtalarında yer alan bir ülkedir başkenti ankara olup en büyük şehri istanbul dır osmanlı imparatorluğunun yıkılmasının ardından mustafa kemal atatürk önderliğinde cumhuriyet kurulmuştur ülke demokratik parlamenter bir sisteme sahiptir"
@@ -91,10 +90,10 @@ if __name__ == "__main__":
     test_text_7 = "dünya üzerinde milyonlarca farklı canlı türü yaşamaktadır her biri ekosistemin önemli bir parçasıdır bitkiler hayvanlar mikroorganizmalar ve mantarlar doğal dengeyi sağlar ormanlar okyanuslar nehirler ve göller biyoçeşitliliğin korunduğu alanlardır iklim değişikliği ve insan faaliyetleri bu dengeyi tehdit etmektedir sürdürülebilir yaşam için doğayı korumak gerekir geri dönüşüm enerji tasarrufu ve bilinçli tüketim önemlidir"
     test_text_8 = "küçük bir kasabada yaşayan genç bir kız her gün deniz kenarında yürüyüş yapmayı severdi dalgaların sesi ona huzur verirdi bazen saatlerce oturup ufku seyrederdi hayallerini kurardı bir gün büyük şehre gidip yazar olmak istiyordu hikayeleri çok güzeldi arkadaşları ona hep destek olurdu ailesi de onu destekliyordu günlerden bir gün büyük bir yarışma kazandı ve ödül olarak kitabını yayınlama fırsatı buldu çok mutluydu"
     test_text_9 = "öğrenciler üniversiteye başlamadan önce çok çalışmalıdır güzel notlar almak için düzenli çalışmak şarttır öğretmenler öğrencilere yardımcı olur bütün dersler önemlidir coğrafya müzik beden eğitimi gibi dersler de çok öğreticidir böylece öğrenciler çok şey öğrenmiş olur üniversitede çok güzel arkadaşlıklar kurulur öğrenci kulüpleri çeşitli etkinlikler düzenler böylece öğrenciler sosyalleşir ve kendilerini geliştirir"
-
+    test_text_10 = "köyün en yaşlısı olan bilge cüce tüm cüceleri bir araya toplar ve onlara huzuru korumanın ne kadar önemli olduğu konusunda konuşmalar yaparmış günlerden bir gün diyarın tüm ışığı kaybolmuş cüceler ne yapacaklarını bilmez bir haldelermiş içlerinden en cesur olan cüceyi ışığı geri getirme konusunda görevlendirmişler ve mağaranın dışına çıkarmışlar"
 
     try:
-        run_inference(test_text_9)
+        run_inference(test_text_10)
     except FileNotFoundError:
         print("\nDosya bulunamadı")
     except Exception as e:
