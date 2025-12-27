@@ -125,10 +125,8 @@ class SubstitutionLSTM(nn.Module):
                 final_input = torch.cat((decoder_out, encoder_step), dim=2)
                 logits = self.fc(final_input) # [1, 1, vocab]
                 
-                # LogSoftmax alıyoruz ki skorları toplayabilelim (çarpma yerine toplama daha stabildir)
                 log_probs = torch.nn.functional.log_softmax(logits, dim=2)
                 
-                # En iyi k adayı al
                 topk_probs, topk_ids = torch.topk(log_probs, beam_width)
                 
                 for k in range(beam_width):
@@ -137,7 +135,6 @@ class SubstitutionLSTM(nn.Module):
                     next_seq = seq + [next_token.item()]
                     candidates.append((next_score, next_token, new_hidden, next_seq))
             
-            # Tüm adaylar arasından en iyi beam_width kadarını seç
             k_beams = sorted(candidates, key=lambda x: x[0], reverse=True)[:beam_width]
 
         # En iyi sonucu döndür

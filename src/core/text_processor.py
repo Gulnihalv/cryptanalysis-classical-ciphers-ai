@@ -1,274 +1,161 @@
 import sys
 import os
+import re
+import logging
+from collections import Counter
+from pathlib import Path
+
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-import re
-from config.paths import PROCESSED_DATA_DIR, RAW_DATA_DIR
+try:
+    from config.paths import PROCESSED_DATA_DIR, RAW_DATA_DIR
+except ImportError:
+    RAW_DATA_DIR = Path("data/raw")
+    PROCESSED_DATA_DIR = Path("data/processed")
 
-def clean_wikipedia_text(text):
-    """
-    Wikipedia-specific cleaning for Turkish
-    """
-    # Remove infobox templates
-    text = re.sub(r'\{\{.*?\}\}', '', text, flags=re.DOTALL)
-    
-    # Remove references [1], [2], etc.
-    text = re.sub(r'\[\d+\]', '', text)
-    
-    # Remove citation needed, kaynak belirtiniz, etc.
-    text = re.sub(r'\[kaynak belirtiniz\]', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'\[citation needed\]', '', text, flags=re.IGNORECASE)
-    
-    # Remove categories
-    text = re.sub(r'\[\[Kategori:.*?\]\]', '', text, flags=re.IGNORECASE)
-    
-    # Remove file/image references
-    text = re.sub(r'\[\[Dosya:.*?\]\]', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'\[\[File:.*?\]\]', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'\[\[Resim:.*?\]\]', '', text, flags=re.IGNORECASE)
-    
-    # Remove internal links [[...]]
-    text = re.sub(r'\[\[(.*?)\|(.*?)\]\]', r'\2', text)  # [[link|text]] -> text
-    text = re.sub(r'\[\[(.*?)\]\]', r'\1', text)  # [[link]] -> link
-    
-    # Remove birth/death dates: "d. 1923", "ö. 1985"
-    text = re.sub(r'\bd\.\s*\d{3,4}\b', '', text)
-    text = re.sub(r'\bö\.\s*\d{3,4}\b', '', text)
-    text = re.sub(r'\bd\s*\d{3,4}\b', '', text)
-    text = re.sub(r'\bö\s*\d{3,4}\b', '', text)
-    
-    # Remove year ranges: "1923-1985", "1920'ler"
-    text = re.sub(r'\b\d{3,4}\s*-\s*\d{3,4}\b', '', text)
-    text = re.sub(r'\b\d{3,4}\'ler\b', '', text)
-    text = re.sub(r'\b\d{3,4}\'lar\b', '', text)
-    
-    # Remove standalone years (careful - keep those in sentences)
-    # Only remove if surrounded by spaces/punctuation
-    text = re.sub(r'(?<![a-züğışöç])\d{3,4}(?![a-züğışöç])', '', text)
-    text = re.sub(r'\b\d+\s*(km|m|cm|mm|kg|g|lt)\b', '', text)
-    
-    abbrevs = [
-        r'\bvs\.',
-        r'\bvb\.',  
-        r'\bvd\.',  
-        r'\byy\.',  
-        r'\bs\.',   
-        r'\bbkz\.', 
-        r'\börn\.', 
-        r'\byak\.', 
-        r'\bdoğ\.', 
-        r'\böl\.',  
-    ]
-    for abbrev in abbrevs:
-        text = re.sub(abbrev, '', text, flags=re.IGNORECASE)
-    
-    # Remove lines starting with bullets/numbers
-    lines = text.split('\n')
-    filtered_lines = []
-    for line in lines:
-        line = line.strip()
-        # Skip if starts with bullet/number
-        if re.match(r'^[\-\*•]\s', line):
-            continue
-        if re.match(r'^\d+\.\s', line):
-            continue
-        if len(line) < 20:
-            continue
-        filtered_lines.append(line)
-    
-    text = ' '.join(filtered_lines)
-    
-    # Remove sections that are all caps (likely headers)
-    text = re.sub(r'\b[A-ZÇĞİÖŞÜ]{3,}\b', '', text)
-    text = text.replace('I', 'ı').replace('İ', 'i').lower()
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
-    text = re.sub(r'[«»""\'\"\\]', '', text)  # Remove quotes
-    
-    # Normalize special characters
-    mapping = {
-        'â': 'a', 'î': 'i', 'û': 'u', 'ê': 'e',
-        'q': 'k', 'w': 'v', 'x': 'ks',
+class TurkishTextCleaner:
+    # bu kısım makaleden alındı
+    EXPECTED_FREQUENCIES = {
+        'a': 11.82, 'e': 9.00, 'i': 8.34, 'n': 7.29, 'r': 6.98, 'l': 6.07,
+        'ı': 5.12, 'k': 4.70, 'd': 4.63, 'm': 3.71, 'y': 3.42, 'u': 3.29,
+        't': 3.27, 's': 3.03, 'b': 2.76, 'o': 2.47, 'ü': 1.97, 'ş': 1.83,
+        'z': 1.51, 'g': 1.32, 'ç': 1.19, 'h': 1.11, 'ğ': 1.07, 'v': 1.00,
+        'c': 0.97, 'ö': 0.86, 'p': 0.84, 'f': 0.43, 'j': 0.03
     }
-    for source, dest in mapping.items():
-        text = text.replace(source, dest)
-    
-    text = re.sub(r'\d+', '', text)
-    
-    # Remove non-Turkish characters
-    text = re.sub(r'[^abcçdefgğhıijklmnoöprsştuüvyz .!?]', '', text)
-    
-    # Clean up whitespace
-    text = re.sub(r'\s+', ' ', text)
-    text = text.strip()
-    
-    return text
 
+    VALID_CHARS = set("abcçdefgğhıijklmnoöprsştuüvyz ")
 
-def split_into_sentences(text, min_length=30, max_length=200):
-    """
-    Split text into clean sentences
-    """
-    # Split by sentence boundaries
-    sentences = re.split(r'[.!?]+', text)
-    
-    # Filter and clean
-    filtered = []
-    for sent in sentences:
-        sent = sent.strip()
+    def __init__(self):
+        self.abbreviations = [
+            r'\bvs\.', r'\bvb\.', r'\bvd\.', r'\byy\.', r'\bs\.', 
+            r'\bbkz\.', r'\börn\.', r'\byak\.', r'\bdoğ\.', r'\böl\.',
+            r'\bdr\.', r'\bprof\.'
+        ]
+
+    def clean_text(self, text: str) -> str:
+        # Structural Wiki Cleanup
+        text = re.sub(r'\{\{.*?\}\}', '', text, flags=re.DOTALL) # Infoboxes
+        text = re.sub(r'<.*?>', '', text, flags=re.DOTALL)       # HTML tags
         
-        # Length filter
-        if not (min_length <= len(sent) <= max_length):
-            continue
+        # Reference Cleanup
+        text = re.sub(r'\[\d+\]', '', text)
+        text = re.sub(r'\[(?:kaynak|citation).*?\]', '', text, flags=re.I)
         
-        # Quality checks
-        if not is_good_sentence(sent):
-            continue
+        # Wiki Media/Links
+        text = re.sub(r'\[\[(?:Dosya|File|Resim|Kategori):.*?\]\]', '', text, flags=re.I)
+        text = re.sub(r'\[\[(.*?)\|(.*?)\]\]', r'\2', text)
+        text = re.sub(r'\[\[(.*?)\]\]', r'\1', text)
+
+        text = re.sub(r'\b(d|ö)\.?\s*\d{3,4}\b', '', text)
+        text = re.sub(r'\b\d{3,4}[\'’]?(?:ler|lar|den|dan|te|ta)\b', '', text)
+        text = re.sub(r'\b\d{3,4}\s*[-–]\s*\d{3,4}\b', '', text)
         
-        filtered.append(sent)
-    
-    return filtered
+        for abbrev in self.abbreviations:
+            text = re.sub(abbrev, '', text, flags=re.I)
 
+        text = text.replace('\n', ' ')
+        text = re.sub(r'\b[A-ZÇĞİÖŞÜ]{3,}\b', '', text) 
+        text = text.replace('İ', 'i').replace('I', 'ı').lower()
+        text = re.sub(r'[«»""\'\"\\(){}\[\]]', '', text)
 
-def is_good_sentence(sentence):
-    """
-    Quality check for sentences
-    """
-    # Must have at least 5 words
-    words = sentence.split()
-    if len(words) < 5:
-        return False
-    
-    # Must have at least 3 Turkish-specific characters
-    turkish_chars = 'çğıiİöşü'
-    turkish_count = sum(1 for c in sentence if c in turkish_chars)
-    if turkish_count < 3:
-        return False
-    
-    # Word diversity (avoid repetitive sentences)
-    unique_words = len(set(words))
-    if unique_words < len(words) * 0.6:  # At least 60% unique
-        return False
-    
-    # Avoid sentences with too many single-letter words
-    single_char_words = sum(1 for w in words if len(w) == 1)
-    if single_char_words > len(words) * 0.3:
-        return False
-    
-    # Must contain at least one verb indicator (very basic check)
-    # Turkish verb endings: -yor, -miş, -dı, -di, etc.
-    verb_patterns = ['yor', 'miş', 'mış', 'muş', 'müş', 'dı', 'di', 'du', 'dü']
-    has_verb = any(pattern in sentence for pattern in verb_patterns)
-    if not has_verb:
-        return False
-    
-    return True
-
-
-def analyze_character_frequency(text):
-    """
-    Analyze character frequency to detect anomalies
-    """
-    from collections import Counter
-    
-    # Count characters
-    chars = [c for c in text if c.isalpha()]
-    freq = Counter(chars)
-    total = len(chars)
-    
-    print("\n📊 Character Frequency Analysis:")
-    print("=" * 50)
-    
-    # Expected Turkish frequencies
-    expected_freq = {
-        'a': 11.92, 'e': 8.91, 'i': 8.60, 'n': 7.26,
-        'r': 6.95, 'l': 5.75, 'ı': 5.11, 't': 3.31,
-        'k': 4.68, 'd': 4.43, 'm': 3.75, 'y': 3.34,
-        'u': 3.23, 's': 3.00, 'o': 2.89, 'b': 2.78,
-    }
-    
-    # Compare top characters
-    top_chars = freq.most_common(20)
-    
-    print(f"{'Char':<6} {'Count':<10} {'Freq %':<10} {'Expected %':<12} {'Diff'}")
-    print("-" * 50)
-    
-    for char, count in top_chars:
-        freq_pct = (count / total) * 100
-        expected = expected_freq.get(char, 0)
-        diff = freq_pct - expected
+        mapping = {'â': 'a', 'î': 'i', 'û': 'u', 'ê': 'e', 'q': 'k', 'w': 'v', 'x': 'ks'}
+        for src, dst in mapping.items():
+            text = text.replace(src, dst)
         
-        # Flag anomalies
-        flag = "⚠️" if abs(diff) > 2 else ""
+        text = re.sub(r'[^abcçdefgğhıijklmnoöprsştuüvyz ]', ' ', text)
+        text = re.sub(r'\s+', ' ', text).strip()
         
-        print(f"{char:<6} {count:<10,} {freq_pct:<10.2f} {expected:<12.2f} {diff:+.2f} {flag}")
-    
-    print("=" * 50)
-    
-    # Check for anomalies
-    anomalies = []
-    for char, count in freq.most_common(10):
-        freq_pct = (count / total) * 100
-        expected = expected_freq.get(char, 3.0)  # Default if not in dict
-        if abs(freq_pct - expected) > 2:
-            anomalies.append((char, freq_pct, expected))
-    
-    if anomalies:
-        print("\n⚠️ Detected anomalies:")
-        for char, actual, expected in anomalies:
-            print(f"  '{char}': {actual:.1f}% (expected ~{expected:.1f}%)")
-    else:
-        print("\n✅ Character frequencies look normal!")
+        return text
+
+    def is_high_quality_segment(self, text: str, min_len: int = 20) -> bool:
+        if len(text) < min_len:
+            return False
+
+        valid_count = sum(1 for c in text if c in self.VALID_CHARS)
+        ratio = valid_count / len(text)
+        
+        return ratio > 0.90
+
+    def analyze_frequency(self, text: str) -> None:
+        # Filter only alphabetic chars for statistics
+        chars = [c for c in text if c.isalpha()]
+        total = len(chars)
+        
+        if total == 0:
+            logger.warning("No characters found for analysis.")
+            return
+
+        freq = Counter(chars)
+        
+        logger.info("\n" + "="*55)
+        logger.info(f"{'CHAR':<6} {'COUNT':<10} {'ACTUAL %':<10} {'EXPECTED %':<12} {'DIFF'}")
+        logger.info("-" * 55)
+
+        sorted_chars = sorted(freq.items(), key=lambda x: x[1], reverse=True)
+        
+        total_diff = 0.0
+        
+        for char, count in sorted_chars:
+            if char not in self.EXPECTED_FREQUENCIES:
+                continue
+                
+            actual_pct = (count / total) * 100
+            expected_pct = self.EXPECTED_FREQUENCIES[char]
+            diff = actual_pct - expected_pct
+            total_diff += abs(diff)
+            
+            flag = "!" if abs(diff) > 2.0 else ""
+            
+            if actual_pct > 1.0: 
+                print(f"{char:<6} {count:<10,} {actual_pct:<10.2f} {expected_pct:<12.2f} {diff:+.2f} {flag}")
+
+        logger.info("-" * 55)
+        logger.info(f"Average Deviation: {total_diff / len(self.EXPECTED_FREQUENCIES):.2f}%")
+        
+        if total_diff / len(self.EXPECTED_FREQUENCIES) < 1.0:
+            logger.info("Data distribution closely matches standard Turkish.")
+        else:
+            logger.warning("Data distribution shows significant deviation.")
+        logger.info("="*55 + "\n")
+
+    def process_file(self, input_path: Path, output_path: Path):
+        if not input_path.exists():
+            logger.error(f"Input file not found: {input_path}")
+            return
+
+        logger.info(f"Reading raw data from: {input_path}")
+        
+        with open(input_path, "r", encoding='utf-8') as f:
+            content = f.read()
+            
+        logger.info(f"Original size: {len(content):,} chars")
+        
+        cleaned_content = self.clean_text(content)
+        logger.info(f"Cleaned size: {len(cleaned_content):,} chars")
+        
+        self.analyze_frequency(cleaned_content)
+        
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(cleaned_content)
+            
+        logger.info(f"Processed data saved to: {output_path}")
 
 
 if __name__ == "__main__":
-    print("=" * 60)
-    print("Wikipedia Turkish Text Cleaner")
-    print("=" * 60)
+    cleaner = TurkishTextCleaner()
     
-    # Read raw file
-    raw_file_path = RAW_DATA_DIR / "wikipedia_tr.txt"
-    print(f"\nReading: {raw_file_path}")
+    raw_file = RAW_DATA_DIR / "wikipedia_tr.txt"
+    out_file = PROCESSED_DATA_DIR / "wiki_processed_new_tr.txt"
     
-    with open(raw_file_path, "r", encoding='utf-8') as file:
-        content = file.read()
-    
-    print(f"Original size: {len(content):,} characters")
-    
-    # Clean
-    print("\nCleaning...")
-    cleaned_text = clean_wikipedia_text(content)
-    print(f"Cleaned size: {len(cleaned_text):,} characters")
-    
-    # Analyze frequency BEFORE splitting
-    print("\n" + "=" * 60)
-    print("Analyzing character frequencies...")
-    analyze_character_frequency(cleaned_text)
-    
-    # Split into sentences
-    print("\n" + "=" * 60)
-    print("Splitting into sentences...")
-    sentences = split_into_sentences(cleaned_text)
-    print(f"Total sentences: {len(sentences):,}")
-    
-    if len(sentences) > 0:
-        avg_length = sum(len(s) for s in sentences) / len(sentences)
-        print(f"Average sentence length: {avg_length:.1f} characters")
-        
-        # Show samples
-        print("\n📝 Sample sentences:")
-        for i, sent in enumerate(sentences[:5], 1):
-            print(f"  {i}. {sent}")
-    
-    # Save
-    PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    output_file = PROCESSED_DATA_DIR / "wiki_processed_tr.txt"
-    
-    with open(output_file, 'w', encoding='utf-8') as file:
-        for sent in sentences:
-            file.write(sent + '\n')
-    
-    print(f"\n✅ Saved → {output_file}")
-    print(f"✅ Total sentences: {len(sentences):,}")
-    print("=" * 60)
+    cleaner.process_file(raw_file, out_file)

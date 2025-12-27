@@ -6,7 +6,6 @@ from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import LearningRateMonitor
 
-# Hem proje kökünü (config için) hem de src klasörünü (generators/models için) path'e ekliyoruz
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, '../../..'))
 src_path = os.path.abspath(os.path.join(current_dir, '../../'))
@@ -97,7 +96,7 @@ def main():
         devices=1,             # 1 GPU kullan
         logger=logger,
         callbacks=[checkpoint_callback, early_stopping, lr_monitor],
-        log_every_n_steps=10   # Her 10 batch'te bir logla
+        log_every_n_steps=10
     )
 
     trainer.fit(model, train_loader, val_loader)
