@@ -26,7 +26,7 @@ class SubstitutionCipherSolver(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         src, tgt_input, tgt_output = batch
 
-        prob = 0.3 
+        prob = 0.1
         mask = torch.rand(tgt_input.shape, device=self.device) < prob
 
         mask[:, 0] = False 
@@ -49,7 +49,7 @@ class SubstitutionCipherSolver(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         src, tgt_input, tgt_output = batch
 
-        prob = 0.3 
+        prob = 0.1 
         mask = torch.rand(tgt_input.shape, device=self.device) < prob
 
         mask[:, 0] = False 
@@ -89,13 +89,3 @@ class SubstitutionCipherSolver(pl.LightningModule):
         }
         return [optimizer], [schedular]
     
-    # Mevcut sınıfının içine ekle
-    def generate_beam(self, src, beam_width=3):
-        """
-         inference aşamasında kullanılacak
-        """
-        return self.model.generate_beam(src, beam_width)
-
-
-
-

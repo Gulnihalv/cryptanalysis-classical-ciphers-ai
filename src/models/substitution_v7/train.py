@@ -15,22 +15,22 @@ if project_root not in sys.path:
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
-from config.constants import S_CONFIG_V1
+from config.constants import S_CONFIG_V5
 from generators.substitution_generator import SubstutionDataGenerator
-from models.substitution.lightning_module import SubstitutionCipherSolver
+from models.substitution_v7.lightning_module_v7 import SubstitutionCipherSolver
+
 
 def main():
     pl.seed_everything(42)
     full_dataset = SubstutionDataGenerator(
-        text_path=S_CONFIG_V1['text_path'],
-        alphabet=S_CONFIG_V1['alphabet'],
-        seq_len=S_CONFIG_V1['seq_len']
+        text_path=S_CONFIG_V5['text_path'],
+        alphabet=S_CONFIG_V5['alphabet'],
+        seq_len=S_CONFIG_V5['seq_len']
     )
 
-    # Train ve Validation olarak bölüyoruz
-    # Datasetin __len__ metodu chunk vericek şekilde yazdığımızdan bu şekilde kullanılabiliyor
+    # Train, Validation
     total_count = len(full_dataset)
-    val_count = int(total_count * S_CONFIG_V1['val_split'])
+    val_count = int(total_count * S_CONFIG_V5['val_split'])
     train_count = total_count - val_count
 
     train_set, val_set = random_split(full_dataset, [train_count, val_count])
@@ -41,18 +41,20 @@ def main():
     # DataLoaders
     train_loader = DataLoader(
         train_set, 
-        batch_size=S_CONFIG_V1['batch_size'], 
+        batch_size=S_CONFIG_V5['batch_size'], 
         shuffle=True, 
-        num_workers=S_CONFIG_V1['num_workers'],
-        pin_memory=True # GPU transferi için
+        num_workers=S_CONFIG_V5['num_workers'],
+        persistent_workers=True,
+        pin_memory=False
     )
 
     val_loader = DataLoader(
         val_set, 
-        batch_size=S_CONFIG_V1['batch_size'], 
+        batch_size=S_CONFIG_V5['batch_size'], 
         shuffle=False, 
-        num_workers=S_CONFIG_V1['num_workers'],
-        pin_memory=True
+        num_workers=S_CONFIG_V5['num_workers'],
+        persistent_workers=True,
+        pin_memory=False
     )
 
     # Model
@@ -61,47 +63,44 @@ def main():
 
     model = SubstitutionCipherSolver(
         vocab_size=vocab_size,
-        embed_dim=S_CONFIG_V1['embed_dim'],
-        hidden_size=S_CONFIG_V1['hidden_size'],
-        lr=S_CONFIG_V1['lr']
+        embed_dim=S_CONFIG_V5['embed_dim'],
+        hidden_size=S_CONFIG_V5['hidden_size'],
+        lr=S_CONFIG_V5['lr']
     )
 
     # Callback
+    # callbacklerde gerçek sonuca göre devam etmek için val_gen_acc kullanıldı val_loss yerine
     checkpoint_callback = ModelCheckpoint(
-        dirpath='checkpoints_v4.1',
-        filename='substitution-{epoch:02d}-{val_loss:.2f}',
-        monitor='val_loss',
-        mode='min',
-        save_top_k=1,
+        dirpath='checkpoints_v7.3',
+        filename='substitution-{epoch:02d}-{val_gen_acc:.3f}',
+        monitor='val_gen_acc',
+        mode='max',
+        save_top_k=3,
         verbose=True
     )
 
-    # Loss 3 epoch boyunca düşmezse eğitimi durdur
     early_stopping = EarlyStopping(
-        monitor='val_loss',
-        patience=3,
-        mode='min',
-        verbose=True
+        monitor='val_gen_acc',
+        patience=10,
+        mode='max',
+        verbose=True,
+        min_delta=0.002 
     )
 
     # TensorBoard Logları 
     logger = TensorBoardLogger("tb_logs", name="cipher_model")
 
-    #RESUME_CHECKPOINT_PATH = "checkpoints/substitution-epoch=39-val_loss=0.22.ckpt"
-
     # Model Eğitimi
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
     trainer = pl.Trainer(
         accelerator="auto",    # GPU varsa kullanır, yoksa CPU
-        devices=1,             # 1 GPU kullan
+        devices=1,
         logger=logger,
         callbacks=[checkpoint_callback, early_stopping, lr_monitor],
         log_every_n_steps=10
     )
 
     trainer.fit(model, train_loader, val_loader)
-    # print(f"Eğitim '{RESUME_CHECKPOINT_PATH}' dosyasından devam ediyor...")
-    # trainer.fit(model, train_loader, val_loader, ckpt_path=RESUME_CHECKPOINT_PATH)
 
     print(f"Eğitim tamamlandı! En iyi model şuraya kaydedildi: {checkpoint_callback.best_model_path}")
 

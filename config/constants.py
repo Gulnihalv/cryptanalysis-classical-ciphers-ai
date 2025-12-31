@@ -11,6 +11,32 @@ S_CONFIG_V1 = {
     'val_split': 0.1                  # Verinin %10'u doğrulama için
 }
 
+S_CONFIG_V5 = {
+    'text_path': 'data/processed/wiki_processed_new_tr.txt',     # Veri setinin yolu
+    'alphabet': "abcçdefgğhıijklmnoöprsştuüvyz", # Şifrelenecek karakterler
+    'seq_len': 250,                   # Chunk uzunluğu
+    'batch_size': 32,
+    'hidden_size': 256,
+    'embed_dim': 128,
+    'lr': 0.001,
+    'max_epochs': 50,
+    'num_workers': 4,                 # CPU çekirdek sayısı (Hız için kritik!)
+    'val_split': 0.15                  # Verinin %10'u doğrulama için
+}
+
+S_CONFIG_V7 = {
+    'text_path': 'data/processed/wiki_processed_new_tr.txt',     # Veri setinin yolu
+    'alphabet': "abcçdefgğhıijklmnoöprsştuüvyz", # Şifrelenecek karakterler
+    'embed_dim': 256,    
+    'hidden_size': 512,
+    'lr': 0.001,
+    'batch_size': 32,   
+    'seq_len': 150,
+    'max_epochs': 50,
+    'num_workers': 4,                 # CPU çekirdek sayısı (Hız için kritik!)
+    'val_split': 0.15
+}
+
 special_tokens = ["<PAD>", "<SOS>", "<EOS>", " "]
 alphabet = list("abcçdefgğhıijklmnoöprsştuüvyz")
 
