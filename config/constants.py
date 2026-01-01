@@ -29,9 +29,9 @@ S_CONFIG_V7 = {
     'alphabet': "abcçdefgğhıijklmnoöprsştuüvyz", # Şifrelenecek karakterler
     'embed_dim': 256,    
     'hidden_size': 512,
-    'lr': 0.001,
+    'lr': 0.0005,
     'batch_size': 32,   
-    'seq_len': 150,
+    'seq_len': 250,
     'max_epochs': 50,
     'num_workers': 4,                 # CPU çekirdek sayısı (Hız için kritik!)
     'val_split': 0.15

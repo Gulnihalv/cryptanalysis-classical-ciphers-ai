@@ -22,7 +22,7 @@ SPACE_TOKEN = " "
 
 SPECIAL_TOKENS = [PAD_TOKEN, SOS_TOKEN, EOS_TOKEN, SPACE_TOKEN]
 FULL_ALPHABET = SPECIAL_TOKENS + list(ALPHABET_CHARS)
-CHECKPOINT_PATH = "checkpoints_v7.2/substitution-epoch=65-val_loss=0.76.ckpt"
+CHECKPOINT_PATH = "checkpoints_v7.3/substitution-epoch=48-val_gen_acc=0.859.ckpt"
 
 # Haritalar
 char2idx = {c: i for i, c in enumerate(FULL_ALPHABET)}
@@ -90,9 +90,10 @@ if __name__ == "__main__":
     test_text_8 = "küçük bir kasabada yaşayan genç bir kız her gün deniz kenarında yürüyüş yapmayı severdi dalgaların sesi ona huzur verirdi bazen saatlerce oturup ufku seyrederdi hayallerini kurardı bir gün büyük şehre gidip yazar olmak istiyordu hikayeleri çok güzeldi arkadaşları ona hep destek olurdu ailesi de onu destekliyordu günlerden bir gün büyük bir yarışma kazandı ve ödül olarak kitabını yayınlama fırsatı buldu çok mutluydu"
     test_text_9 = "öğrenciler üniversiteye başlamadan önce çok çalışmalıdır güzel notlar almak için düzenli çalışmak şarttır öğretmenler öğrencilere yardımcı olur bütün dersler önemlidir coğrafya müzik beden eğitimi gibi dersler de çok öğreticidir böylece öğrenciler çok şey öğrenmiş olur üniversitede çok güzel arkadaşlıklar kurulur öğrenci kulüpleri çeşitli etkinlikler düzenler böylece öğrenciler sosyalleşir ve kendilerini geliştirir"
     test_text_10 = "köyün en yaşlısı olan bilge cüce tüm cüceleri bir araya toplar ve onlara huzuru korumanın ne kadar önemli olduğu konusunda konuşmalar yaparmış günlerden bir gün diyarın tüm ışığı kaybolmuş cüceler ne yapacaklarını bilmez bir haldelermiş içlerinden en cesur olan cüceyi ışığı geri getirme konusunda görevlendirmişler ve mağaranın dışına çıkarmışlar"
-
+    test_text_11 = "cengiz han doğum adıyla temuçin ağustos moğol imparatorluğunun kurucusu ve ilk kağanı olan moğol komutan ve hükümdardır hükümdarlığı döneminde gerçekleştirdiği hiçbir savaşı kaybetmeyen cengiz han dünya tarihinin en büyük askeri liderlerinden birisi olarak kabul edilmektedir"
+    
     try:
-        run_inference(test_text_1)
+        run_inference(test_text_11)
     except FileNotFoundError:
         print("\nDosya bulunamadı")
     except Exception as e:

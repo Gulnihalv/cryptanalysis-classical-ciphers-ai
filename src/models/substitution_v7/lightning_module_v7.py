@@ -24,53 +24,56 @@ class SubstitutionCipherSolver(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         src, tgt_input, tgt_output = batch
 
-        teacher_forcing_ratio = max(0.0, 1.0 - (self.current_epoch * 0.05)) # Daha yavaş düşsün ama 0'a insin
-        
+        # Decay teacher forcing
+        epoch_shifted = max(0, self.current_epoch - 5)
+        teacher_forcing_ratio = max(0.0, 1.0 - (epoch_shifted * 0.05))
         use_teacher_forcing = torch.rand(1).item() < teacher_forcing_ratio
 
         if use_teacher_forcing:
-            # Klasik hızlı yol (Teacher Forcing)
+            # Standard forward pass (uses Teacher Forcing implicitly via input)
             logits = self(src, tgt_input=tgt_input)
         else:
-            # --- YENİ YÖNTEM: Autoregressive Rollout ---
-            # Burada modelin kendi ürettiği çıktıyı (hatalı olsa bile) 
-            # bir sonraki adıma besleyerek zincirleme etkiyi öğretiyoruz.
+            # --- Autoregressive Rollout (Fixed) ---
             
-            # Encoder kısmını bir kere çalıştır
+            # 1. Precompute static features once
             src_emb = self.model.embedding(src)
             cipher_context, _ = self.model.cipher_context_encoder(src_emb)
+            
+            # ✅ FIX: Calculate Frequency Features
+            global_freqs = self.model.compute_global_stats(src)
+            freq_features = self.model.freq_encoder(global_freqs) # [B, 32]
             
             batch_size, seq_len = src.size()
             outputs = []
             
-            # İlk girdi SOS token
-            current_input = tgt_input[:, 0:1] # [B, 1]
-            h = None # Hidden state
+            # Start with SOS
+            current_input = tgt_input[:, 0:1] 
+            h = None 
             
             for t in range(seq_len):
-                # 1. Adım verilerini hazırla
+                # Slice inputs for this step
                 cipher_char_emb = src_emb[:, t:t+1, :]
                 tgt_emb = self.model.embedding(current_input)
                 context = cipher_context[:, t:t+1, :]
                 
-                # 2. Birleştir
-                combined_input = torch.cat((cipher_char_emb, tgt_emb, context), dim=2)
+                # ✅ FIX: Prepare frequency feature for this step
+                # We simply add a time dimension: [B, 32] -> [B, 1, 32]
+                freq_t = freq_features.unsqueeze(1)
                 
-                # 3. LSTM Adımı
+                # Combine (Now sizes match the LSTM definition)
+                combined_input = torch.cat((cipher_char_emb, tgt_emb, context, freq_t), dim=2)
+                
+                # LSTM Step
                 out, h = self.model.rnn(combined_input, h)
                 
-                # 4. Tahmin
-                logit = self.model.fc(out) # [B, 1, V]
+                # Predict
+                logit = self.model.fc(out)
                 outputs.append(logit)
                 
-                # 5. Bir sonraki adımın girdisi ne olacak?
-                # İşte burası kilit nokta: Modelin kendi seçimi!
-                predicted_token = torch.argmax(logit, dim=-1) # [B, 1]
-                
-                # prediction'ı gradient'ten kopar (yoksa hata alırsın)
+                # Feed own prediction to next step
+                predicted_token = torch.argmax(logit, dim=-1)
                 current_input = predicted_token.detach() 
 
-            # Tüm adımları birleştir: [B, S, V]
             logits = torch.cat(outputs, dim=1)
 
         loss = self.loss(logits.view(-1, self.hparams.vocab_size), tgt_output.view(-1))

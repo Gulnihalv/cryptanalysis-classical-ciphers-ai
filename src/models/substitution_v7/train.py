@@ -15,7 +15,7 @@ if project_root not in sys.path:
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
-from config.constants import S_CONFIG_V5
+from config.constants import S_CONFIG_V7
 from generators.substitution_generator import SubstutionDataGenerator
 from models.substitution_v7.lightning_module_v7 import SubstitutionCipherSolver
 
@@ -23,14 +23,14 @@ from models.substitution_v7.lightning_module_v7 import SubstitutionCipherSolver
 def main():
     pl.seed_everything(42)
     full_dataset = SubstutionDataGenerator(
-        text_path=S_CONFIG_V5['text_path'],
-        alphabet=S_CONFIG_V5['alphabet'],
-        seq_len=S_CONFIG_V5['seq_len']
+        text_path=S_CONFIG_V7['text_path'],
+        alphabet=S_CONFIG_V7['alphabet'],
+        seq_len=S_CONFIG_V7['seq_len']
     )
 
     # Train, Validation
     total_count = len(full_dataset)
-    val_count = int(total_count * S_CONFIG_V5['val_split'])
+    val_count = int(total_count * S_CONFIG_V7['val_split'])
     train_count = total_count - val_count
 
     train_set, val_set = random_split(full_dataset, [train_count, val_count])
@@ -41,18 +41,18 @@ def main():
     # DataLoaders
     train_loader = DataLoader(
         train_set, 
-        batch_size=S_CONFIG_V5['batch_size'], 
+        batch_size=S_CONFIG_V7['batch_size'], 
         shuffle=True, 
-        num_workers=S_CONFIG_V5['num_workers'],
+        num_workers=S_CONFIG_V7['num_workers'],
         persistent_workers=True,
         pin_memory=False
     )
 
     val_loader = DataLoader(
         val_set, 
-        batch_size=S_CONFIG_V5['batch_size'], 
+        batch_size=S_CONFIG_V7['batch_size'], 
         shuffle=False, 
-        num_workers=S_CONFIG_V5['num_workers'],
+        num_workers=S_CONFIG_V7['num_workers'],
         persistent_workers=True,
         pin_memory=False
     )
@@ -63,15 +63,15 @@ def main():
 
     model = SubstitutionCipherSolver(
         vocab_size=vocab_size,
-        embed_dim=S_CONFIG_V5['embed_dim'],
-        hidden_size=S_CONFIG_V5['hidden_size'],
-        lr=S_CONFIG_V5['lr']
+        embed_dim=S_CONFIG_V7['embed_dim'],
+        hidden_size=S_CONFIG_V7['hidden_size'],
+        lr=S_CONFIG_V7['lr']
     )
 
     # Callback
     # callbacklerde gerçek sonuca göre devam etmek için val_gen_acc kullanıldı val_loss yerine
     checkpoint_callback = ModelCheckpoint(
-        dirpath='checkpoints_v7.3',
+        dirpath='checkpoints_v7.4',
         filename='substitution-{epoch:02d}-{val_gen_acc:.3f}',
         monitor='val_gen_acc',
         mode='max',
