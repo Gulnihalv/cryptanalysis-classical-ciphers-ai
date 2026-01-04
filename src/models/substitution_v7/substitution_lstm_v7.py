@@ -20,7 +20,7 @@ class SubstitutionLSTM(nn.Module):
         )
         
         # 2. Frequency Encoder - Compresses the "Language Fingerprint"
-        # Input: 33 (vocab size) -> Output: 32 (condensed stats)
+        # Input: 33 (vocab size) -> Output: 32
         self.freq_encoder = nn.Sequential(
             nn.Linear(vocab_size, 64),
             nn.ReLU(),
@@ -118,3 +118,125 @@ class SubstitutionLSTM(nn.Module):
             current_input_token = predicted_token
 
         return torch.cat(predictions, dim=1)
+    
+    def generate_beam(self, src, beam_width=3):
+        """
+        Beam Search Decoding: Keeps 'beam_width' hypotheses alive to fix errors.
+        """
+        batch_size, seq_len = src.size()
+        device = src.device
+        
+        # Precompute Encoders (Once per batch)
+        src_emb = self.embedding(src)
+        cipher_context, _ = self.cipher_context_encoder(src_emb)
+        global_freqs = self.compute_global_stats(src)
+        freq_features = self.freq_encoder(global_freqs).unsqueeze(1) # [B, 1, 32]
+
+        results = []
+        
+        for b in range(batch_size):
+            # Start with: (Score, current_token, hidden_state, predicted_sequence)
+            hypotheses = [(0.0, self.SOS_TOKEN, None, [])]
+            
+            curr_cipher_emb = src_emb[b]    # [Seq, Embed]
+            curr_context = cipher_context[b] # [Seq, Hidden]
+            curr_freq = freq_features[b]     # [1, 32]
+            
+            for t in range(seq_len):
+                candidates = []
+                
+                # Expand every living hypothesis
+                for score, inp_token, h_state, seq_so_far in hypotheses:
+                    # Prepare Inputs
+                    cipher_char_t = curr_cipher_emb[t:t+1].unsqueeze(0) # [1, 1, Embed]
+                    
+                    tgt_emb = self.embedding(torch.tensor([[inp_token]], device=device))
+                    context_t = curr_context[t:t+1].unsqueeze(0)
+                    freq_t = curr_freq.unsqueeze(0)
+                    
+                    # LSTM Step
+                    combined = torch.cat((cipher_char_t, tgt_emb, context_t, freq_t), dim=2)
+                    out, new_h = self.rnn(combined, h_state)
+                    
+                    # Calculate Log Probs (LogSoftmax is better for adding scores)
+                    log_probs = F.log_softmax(self.fc(out), dim=-1).squeeze() # [Vocab]
+                    
+                    # Get Top K candidates for this hypothesis
+                    topk_log_probs, topk_indices = torch.topk(log_probs, beam_width)
+                    
+                    for k in range(beam_width):
+                        new_score = score + topk_log_probs[k].item()
+                        new_token = topk_indices[k].item()
+                        candidates.append((new_score, new_token, new_h, seq_so_far + [new_token]))
+                
+                # Select top 'beam_width' candidates globally to survive
+                candidates.sort(key=lambda x: x[0], reverse=True)
+                hypotheses = candidates[:beam_width]
+            
+            # Best hypothesis for this sample
+            best_seq = hypotheses[0][3]
+            results.append(torch.tensor(best_seq, device=device))
+            
+        return torch.stack(results)
+    
+    def generate_consistent(self, src):
+        raw_prediction = self.generate_beam(src) # or self.generate(src)
+        
+        batch_size, seq_len = src.size()
+        device = src.device
+        
+        refined_outputs = []
+        
+        for b in range(batch_size):
+            cipher_seq = src[b].tolist()
+            pred_seq = raw_prediction[b].tolist()
+            
+            # votes[cipher_char][plain_char] = count
+            votes = {} 
+            
+            for c_char, p_char in zip(cipher_seq, pred_seq):
+                # Ignore special tokens
+                if c_char < 4: continue 
+                
+                if c_char not in votes:
+                    votes[c_char] = {}
+                if p_char not in votes[c_char]:
+                    votes[c_char][p_char] = 0
+                
+                votes[c_char][p_char] += 1
+            
+            # Step 3: Build the "Winner" Dictionary
+            final_key_map = {}
+            used_plain_chars = set()
+            
+            # Sort cipher chars by total frequency (most common first to claim best plain chars)
+            sorted_cipher_chars = sorted(votes.keys(), key=lambda k: sum(votes[k].values()), reverse=True)
+            
+            for c_char in sorted_cipher_chars:
+                # Find the plain char with the highest vote count
+                candidates = votes[c_char]
+                # Sort candidates by vote count
+                sorted_candidates = sorted(candidates.items(), key=lambda x: x[1], reverse=True)
+                
+                best_plain = sorted_candidates[0][0]
+                
+                # If 'S' is already taken by a stronger cipher char, take the next best guess
+                for cand_plain, count in sorted_candidates:
+                    if cand_plain not in used_plain_chars:
+                        best_plain = cand_plain
+                        break
+                
+                final_key_map[c_char] = best_plain
+                used_plain_chars.add(best_plain)
+            
+            # If a char wasn't in the map (e.g. rare char), keep the raw prediction or use a placeholder
+            new_seq = []
+            for i, c_char in enumerate(cipher_seq):
+                if c_char in final_key_map:
+                    new_seq.append(final_key_map[c_char])
+                else:
+                    new_seq.append(pred_seq[i]) # Fallback to raw prediction
+            
+            refined_outputs.append(torch.tensor(new_seq, device=device))
+            
+        return torch.stack(refined_outputs)

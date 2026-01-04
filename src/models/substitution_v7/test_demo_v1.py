@@ -22,7 +22,7 @@ SPACE_TOKEN = " "
 
 SPECIAL_TOKENS = [PAD_TOKEN, SOS_TOKEN, EOS_TOKEN, SPACE_TOKEN]
 FULL_ALPHABET = SPECIAL_TOKENS + list(ALPHABET_CHARS)
-CHECKPOINT_PATH = "checkpoints_v7.3/substitution-epoch=48-val_gen_acc=0.859.ckpt"
+CHECKPOINT_PATH = "checkpoints_v7.4/substitution-epoch=47-val_gen_acc=0.930.ckpt"
 
 # Haritalar
 char2idx = {c: i for i, c in enumerate(FULL_ALPHABET)}
@@ -73,7 +73,7 @@ def run_inference(input_text):
     input_indices = [char2idx.get(c, char2idx[PAD_TOKEN]) for c in cipher_text]
     input_tensor = torch.tensor(input_indices, dtype=torch.long).unsqueeze(0).to(DEVICE)
 
-    predicted_tensor = model.model.generate(input_tensor) 
+    predicted_tensor = model.model.generate_consistent(input_tensor) 
     
     decoded_text = decode_tensor(predicted_tensor)
     
@@ -91,9 +91,13 @@ if __name__ == "__main__":
     test_text_9 = "öğrenciler üniversiteye başlamadan önce çok çalışmalıdır güzel notlar almak için düzenli çalışmak şarttır öğretmenler öğrencilere yardımcı olur bütün dersler önemlidir coğrafya müzik beden eğitimi gibi dersler de çok öğreticidir böylece öğrenciler çok şey öğrenmiş olur üniversitede çok güzel arkadaşlıklar kurulur öğrenci kulüpleri çeşitli etkinlikler düzenler böylece öğrenciler sosyalleşir ve kendilerini geliştirir"
     test_text_10 = "köyün en yaşlısı olan bilge cüce tüm cüceleri bir araya toplar ve onlara huzuru korumanın ne kadar önemli olduğu konusunda konuşmalar yaparmış günlerden bir gün diyarın tüm ışığı kaybolmuş cüceler ne yapacaklarını bilmez bir haldelermiş içlerinden en cesur olan cüceyi ışığı geri getirme konusunda görevlendirmişler ve mağaranın dışına çıkarmışlar"
     test_text_11 = "cengiz han doğum adıyla temuçin ağustos moğol imparatorluğunun kurucusu ve ilk kağanı olan moğol komutan ve hükümdardır hükümdarlığı döneminde gerçekleştirdiği hiçbir savaşı kaybetmeyen cengiz han dünya tarihinin en büyük askeri liderlerinden birisi olarak kabul edilmektedir"
+    test_text_12 = "hayatın en önemli gerçeği samimiliktir bu itibarla hayat ile bağı olan edebiyat mutlaka samimi bir edebiyattır denilebilir hayatı en gizli en karışık yönleriyle anlatmayan duygularımızı tıpkı hayatta olduğu gibi saf ve derin bir şekilde duyurmayan elemlerimizi felaketlerimizi açık açık yansıtmayan bir edebiyat hayat ile ilgisiz ve sahte bir edebiyattır"
+    test_text_13 = "insan elinde ne illet var ki dokunduğunu değiştiriyor kendiliğinden iyi ve güzel olan şeyleri bozuyor iyi olmak arzusu bazen öyle azgın bir tutku oluyor ki iyi olalım derken kötü oluyoruz bazıları der ki iyinin aşırısı olmaz çünkü aşırı oldu mu zaten iyi değil demektir kelimelerle oynamak diyeceği gelir insanın buna felsefenin böyle ince oyunları vardır"
+    test_text_14 = "güneşli ve sıcak bir yaz günüydü şehrin meydanındaki saat öğle sonu ikiyi gösteriyordu k nin dağ köylerinden on on bir yaşlarında iri kara gözlü işlemeli sarı bir mintanla şayak bir şalvar giyinmiş genç irisi bir çocuk elinde tabancası herkesin şaşkın bakışları arasından hükümet konağına doğru koşuyordu çocuğun iki üç yüz metre kadar gerisinden babasıyla amcası onu hızlı adımlarla izliyorlardı"
+    test_text_15 = "o günü bir vaka gibi bütün canlılığıyla pek yakından hatırlarım büyük merasim salonu bayraklarla süslenmişti biz talebe elbisesini son defa giyinmiş ve bu salonda sıra sıra yerlerimizi almıştık hazırlık kıtası ve mektep devresi olarak ihtiyat zabit mektebinde geçirdiğimiz bir sene şimdi yapılacak merasimle sona ermiş olacaktı"
     
     try:
-        run_inference(test_text_11)
+        run_inference(test_text_14)
     except FileNotFoundError:
         print("\nDosya bulunamadı")
     except Exception as e:

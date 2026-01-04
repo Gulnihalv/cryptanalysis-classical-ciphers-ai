@@ -33,20 +33,17 @@ class SubstitutionCipherSolver(pl.LightningModule):
             # Standard forward pass (uses Teacher Forcing implicitly via input)
             logits = self(src, tgt_input=tgt_input)
         else:
-            # --- Autoregressive Rollout (Fixed) ---
-            
             # 1. Precompute static features once
             src_emb = self.model.embedding(src)
             cipher_context, _ = self.model.cipher_context_encoder(src_emb)
             
-            # ✅ FIX: Calculate Frequency Features
             global_freqs = self.model.compute_global_stats(src)
             freq_features = self.model.freq_encoder(global_freqs) # [B, 32]
             
             batch_size, seq_len = src.size()
+            # Start with SOS
             outputs = []
             
-            # Start with SOS
             current_input = tgt_input[:, 0:1] 
             h = None 
             
@@ -55,8 +52,7 @@ class SubstitutionCipherSolver(pl.LightningModule):
                 cipher_char_emb = src_emb[:, t:t+1, :]
                 tgt_emb = self.model.embedding(current_input)
                 context = cipher_context[:, t:t+1, :]
-                
-                # ✅ FIX: Prepare frequency feature for this step
+
                 # We simply add a time dimension: [B, 32] -> [B, 1, 32]
                 freq_t = freq_features.unsqueeze(1)
                 
