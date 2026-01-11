@@ -20,8 +20,8 @@ S_CONFIG_V5 = {
     'embed_dim': 128,
     'lr': 0.001,
     'max_epochs': 50,
-    'num_workers': 4,                 # CPU çekirdek sayısı (Hız için kritik!)
-    'val_split': 0.15                  # Verinin %10'u doğrulama için
+    'num_workers': 4,
+    'val_split': 0.15 
 }
 
 S_CONFIG_V7 = {
@@ -33,7 +33,20 @@ S_CONFIG_V7 = {
     'batch_size': 32,   
     'seq_len': 250,
     'max_epochs': 50,
-    'num_workers': 4,                 # CPU çekirdek sayısı (Hız için kritik!)
+    'num_workers': 4,
+    'val_split': 0.15
+}
+
+S_CONFIG_V8 = {
+    'text_path': 'data/processed/wiki_news_processed.txt',     # Veri setinin yolu
+    'alphabet': "abcçdefgğhıijklmnoöprsştuüvyz", # Şifrelenecek karakterler
+    'embed_dim': 256,    
+    'hidden_size': 512,
+    'lr': 0.0005,
+    'batch_size': 32,   
+    'seq_len': 250,
+    'max_epochs': 50,
+    'num_workers': 4,
     'val_split': 0.15
 }
 

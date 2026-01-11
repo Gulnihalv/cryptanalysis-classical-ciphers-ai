@@ -8,19 +8,6 @@ if project_root not in sys.path:
 from datasets import load_dataset
 from config.paths import RAW_DATA_DIR
 
-def download_tr_oscar(limit=5000):
-    ds = load_dataset(
-        "oscar-corpus/OSCAR-2301",
-        "tr",
-        split=f"train[:{limit}]"
-    )
-
-    RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    output_file = RAW_DATA_DIR / "oscar_tr_{limit}.json"
-
-    ds.to_json(str(output_file))
-    print(f"Saved → {output_file}")
-
 def download_tr_wikipedia():
     ds = load_dataset(
         "wikimedia/wikipedia",
@@ -40,5 +27,4 @@ def download_tr_wikipedia():
 
 if __name__ == "__main__":
     download_tr_wikipedia()
-    #download_tr_oscar()
 

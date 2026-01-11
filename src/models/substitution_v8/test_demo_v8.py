@@ -13,7 +13,7 @@ if project_root not in sys.path:
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
-from models.substitution_v7.lightning_module_v7 import SubstitutionCipherSolver
+from models.substitution_v8.lightning_module_v8 import SubstitutionCipherSolver
 
 ALPHABET_CHARS = "abcçdefgğhıijklmnoöprsştuüvyz"
 PAD_TOKEN = "<PAD>"

@@ -155,7 +155,22 @@ class TurkishTextCleaner:
 if __name__ == "__main__":
     cleaner = TurkishTextCleaner()
     
-    raw_file = RAW_DATA_DIR / "wikipedia_tr.txt"
-    out_file = PROCESSED_DATA_DIR / "wiki_processed_new_tr.txt"
+    # raw_wiki_file = RAW_DATA_DIR / "wikipedia_tr.txt"
+    # out_wiki_file = PROCESSED_DATA_DIR / "wiki_processed_tr.txt"
     
-    cleaner.process_file(raw_file, out_file)
+    # #cleaner.process_file(raw_wiki_file, out_wiki_file)
+
+    # raw_book_file = RAW_DATA_DIR / "book_dataset.txt"
+    # out_book_file = PROCESSED_DATA_DIR / "books_processed.txt"
+
+    # #cleaner.process_file(raw_book_file, out_book_file)
+
+    # raw_news_file = RAW_DATA_DIR / "newscor_test.txt"
+    # out_news_file = PROCESSED_DATA_DIR / "newscor_processed.txt"
+
+    # #cleaner.process_file(raw_news_file, out_news_file)
+
+    raw_news_file = RAW_DATA_DIR / "wiki_news.txt"
+    out_news_file = PROCESSED_DATA_DIR / "wiki_news_processed.txt"
+
+    cleaner.process_file(raw_news_file, out_news_file)
