@@ -54,7 +54,7 @@ class SubstitutionLSTM(nn.Module):
         # Amaç: Kısa vadeli harf ilişkilerini (bigram/trigram) yakalamak
         # LSTM'e ham harf yerine "işlenmiş özellik" vermek.
         self.local_cnn = nn.Sequential(
-            ResidualConv1D(embed_dim, hidden_size, kernel_size=1),
+            ResidualConv1D(embed_dim, hidden_size, kernel_size=3),
             nn.ReLU(),
             nn.Dropout(0.2),
             ResidualConv1D(hidden_size, hidden_size, kernel_size=3),
@@ -65,7 +65,7 @@ class SubstitutionLSTM(nn.Module):
         # --- 2. Bi-LSTM Context Encoder (Beyin) ---
         # Amaç: CNN'den gelen özellikleri uzun vadeli bağlama oturtmak.
         self.global_lstm = nn.LSTM(
-            input_size=hidden_size, # CNN'in çıkışı buraya giriyor
+            input_size=hidden_size + embed_dim, # CNN'in çıkışı buraya giriyor + ham veri
             hidden_size=hidden_size // 2,
             num_layers=2, # Biraz daha derinleşti
             batch_first=True,
@@ -110,10 +110,10 @@ class SubstitutionLSTM(nn.Module):
         # 1. CNN Adımı (Permute gerekli: Batch, Channel, Seq)
         cnn_in = src_emb.permute(0, 2, 1)
         cnn_out = self.local_cnn(cnn_in)
-        
-        # 2. LSTM Adımı (Tekrar düzelt: Batch, Seq, Channel)
-        lstm_in = cnn_out.permute(0, 2, 1)
-        cipher_context, _ = self.global_lstm(lstm_in) # Çıktı: [Batch, Seq, Hidden]
+        cnn_out_permuted = cnn_out.permute(0, 2, 1)
+
+        lstm_input = torch.cat((cnn_out_permuted, src_emb), dim=2)
+        cipher_context, _ = self.global_lstm(lstm_input) # Çıktı: [Batch, Seq, Hidden]
         
         # --- B. Global Frekans ---
         global_freqs = self.compute_global_stats(src)
@@ -135,17 +135,23 @@ class SubstitutionLSTM(nn.Module):
         batch_size, seq_len = src.size()
         device = src.device
         
-        src_emb = self.embedding(src)
+        # 1. Embedding
+        src_emb = self.embedding(src) # [Batch, Seq, Embed]
         
+        # 2. CNN (Bağlam)
         cnn_in = src_emb.permute(0, 2, 1)
         cnn_out = self.local_cnn(cnn_in)
+        cnn_out_permuted = cnn_out.permute(0, 2, 1) # [Batch, Seq, Hidden]
         
-        lstm_in = cnn_out.permute(0, 2, 1)
-        cipher_context, _ = self.global_lstm(lstm_in) # Çıktı: [Batch, Seq, Hidden]
+        # Forward'daki gibi CNN çıkışı ile Ham Embedding'i birleştiriyoruz
+        lstm_input = torch.cat((cnn_out_permuted, src_emb), dim=2) 
         
-        # --- B. Global Frekans ---
+        # LSTM artık (Hidden + Embed) boyutunda veri alıyor
+        cipher_context, _ = self.global_lstm(lstm_input) 
+        
+        # 3. Global Frekans
         global_freqs = self.compute_global_stats(src)
-        freq_features = self.freq_encoder(global_freqs)
+        freq_features = self.freq_encoder(global_freqs) # [Batch, 32]
         
         current_input_token = torch.full((batch_size, 1), self.SOS_TOKEN, dtype=torch.long, device=device)
         h = None
@@ -155,10 +161,10 @@ class SubstitutionLSTM(nn.Module):
             cipher_char_emb = src_emb[:, t:t+1, :]
             tgt_emb = self.embedding(current_input_token)
             
-            # Conv Context önceden hesaplandı, t anını çekiyoruz
+            # Context hazır, t anını çekiyoruz
             context = cipher_context[:, t:t+1, :]
             
-            freq_t = freq_features.unsqueeze(1)
+            freq_t = freq_features.unsqueeze(1) # [Batch, 1, 32]
             
             combined_input = torch.cat((cipher_char_emb, tgt_emb, context, freq_t), dim=2)
             output, h = self.rnn(combined_input, h)
@@ -175,28 +181,30 @@ class SubstitutionLSTM(nn.Module):
         batch_size, seq_len = src.size()
         device = src.device
         
-        # --- Precompute Encoders (HİBRİT YAPI) ---
+        # 1. Embedding
         src_emb = self.embedding(src)
         
-        # 1. CNN Adımı
-        cnn_in = src_emb.permute(0, 2, 1) # [B, Embed, Seq]
-        cnn_out = self.local_cnn(cnn_in)  # [B, Hidden, Seq] -> Burada isim local_cnn olmalı
+        # 2. CNN
+        cnn_in = src_emb.permute(0, 2, 1) 
+        cnn_out = self.local_cnn(cnn_in)
+        cnn_out_permuted = cnn_out.permute(0, 2, 1)
         
-        # 2. LSTM Adımı (Eksikti, eklendi)
-        lstm_in = cnn_out.permute(0, 2, 1) # [B, Seq, Hidden]
-        cipher_context, _ = self.global_lstm(lstm_in) # [B, Seq, Hidden]
+        lstm_input = torch.cat((cnn_out_permuted, src_emb), dim=2)
+        cipher_context, _ = self.global_lstm(lstm_input) 
 
-        # Global Frekanslar
+        # 3. Global Frekanslar
         global_freqs = self.compute_global_stats(src)
         freq_features = self.freq_encoder(global_freqs).unsqueeze(1)
 
         results = []
         
         for b in range(batch_size):
+            # Beam Search Başlangıcı
+            # (Score, current_token, hidden_state, predicted_sequence)
             hypotheses = [(0.0, self.SOS_TOKEN, None, [])]
             
             curr_cipher_emb = src_emb[b]     # [Seq, Embed]
-            curr_context = cipher_context[b] # [Seq, Hidden] (Artık LSTM çıkışı)
+            curr_context = cipher_context[b] # [Seq, Hidden] 
             curr_freq = freq_features[b]     # [1, 32]
             
             for t in range(seq_len):
@@ -210,6 +218,7 @@ class SubstitutionLSTM(nn.Module):
                     combined = torch.cat((cipher_char_t, tgt_emb, context_t, freq_t), dim=2)
                     out, new_h = self.rnn(combined, h_state)
                     
+                    # LogSoftmax önemli
                     log_probs = F.log_softmax(self.fc(out), dim=-1).squeeze()
                     topk_log_probs, topk_indices = torch.topk(log_probs, beam_width)
                     
@@ -218,6 +227,7 @@ class SubstitutionLSTM(nn.Module):
                         new_token = topk_indices[k].item()
                         candidates.append((new_score, new_token, new_h, seq_so_far + [new_token]))
                 
+                # En iyi beam_width kadar adayı seç
                 candidates.sort(key=lambda x: x[0], reverse=True)
                 hypotheses = candidates[:beam_width]
             
