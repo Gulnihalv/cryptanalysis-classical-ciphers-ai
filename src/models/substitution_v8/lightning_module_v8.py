@@ -3,13 +3,13 @@ import torch.nn as nn
 import pytorch_lightning as pl
 import torchmetrics
 
-from models.substitution_v8.substitution_lstm_v8 import SubstitutionLSTMV8
+from models.substitution_v8.substitution_lstm_v8 import SubstitutionLSTM
 
-class SubstitutionCipherSolverV8(pl.LightningModule):
+class SubstitutionCipherSolver(pl.LightningModule):
     def __init__(self, vocab_size=33, embed_dim=128, hidden_size=256, lr=0.001):
         super().__init__()
         self.save_hyperparameters()
-        self.model = SubstitutionLSTMV8(
+        self.model = SubstitutionLSTM(
             vocab_size=vocab_size, 
             embed_dim=embed_dim, 
             hidden_size=hidden_size
@@ -32,17 +32,17 @@ class SubstitutionCipherSolverV8(pl.LightningModule):
         if use_teacher_forcing:
             logits = self(src, tgt_input=tgt_input)
         else:
-            # Precompute static features
+            # 1. Precompute static features once
             src_emb = self.model.embedding(src)
             
-            # Conv1D [Batch, Channel, Length] ister -> (0, 2, 1)
-            conv_input = src_emb.permute(0, 2, 1)
-            conv_out = self.model.context_encoder(conv_input)
+            # A. CNN
+            cnn_in = src_emb.permute(0, 2, 1)
+            cnn_out = self.model.local_cnn(cnn_in)
             
-            # Çıktıyı LSTM'e uygun hale getir: [Batch, Length, Channel]
-            cipher_context = conv_out.permute(0, 2, 1) 
-            
-            # Global Freqs (Burası aynı)
+            # B. LSTM
+            lstm_in = cnn_out.permute(0, 2, 1)
+            cipher_context, _ = self.model.global_lstm(lstm_in) 
+
             global_freqs = self.model.compute_global_stats(src)
             freq_features = self.model.freq_encoder(global_freqs) # [B, 32]
             

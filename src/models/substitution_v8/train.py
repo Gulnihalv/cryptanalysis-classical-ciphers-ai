@@ -17,7 +17,7 @@ if src_path not in sys.path:
 
 from config.constants import S_CONFIG_V8
 from generators.substitution_generator import SubstutionDataGenerator
-from models.substitution_v8.lightning_module_v8 import SubstitutionCipherSolverV8
+from models.substitution_v8.lightning_module_v8 import SubstitutionCipherSolver
 
 
 def main():
@@ -61,7 +61,7 @@ def main():
     vocab_size = len(full_dataset.full_alphabet)
     print(f"Alfabe Boyutu (Vocab Size): {vocab_size}") # özel karakterler dahil 33 olmalı
 
-    model = SubstitutionCipherSolverV8(
+    model = SubstitutionCipherSolver(
         vocab_size=vocab_size,
         embed_dim=S_CONFIG_V8['embed_dim'],
         hidden_size=S_CONFIG_V8['hidden_size'],
@@ -71,7 +71,7 @@ def main():
     # Callback
     # callbacklerde gerçek sonuca göre devam etmek için val_gen_acc kullanıldı val_loss yerine
     checkpoint_callback = ModelCheckpoint(
-        dirpath='checkpoints_v8',
+        dirpath='checkpoints_v9',
         filename='substitution-{epoch:02d}-{val_gen_acc:.3f}',
         monitor='val_gen_acc',
         mode='max',
@@ -88,7 +88,7 @@ def main():
     )
 
     # TensorBoard Logları 
-    logger = TensorBoardLogger("tb_logs", name="cipher_model_v8")
+    logger = TensorBoardLogger("tb_logs", name="cipher_model_v9")
 
     # Model Eğitimi
     lr_monitor = LearningRateMonitor(logging_interval='epoch')

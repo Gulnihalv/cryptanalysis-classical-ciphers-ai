@@ -42,45 +42,50 @@ class ResidualConv1D(nn.Module):
             
         return self.relu(out + residual)
 
-class SubstitutionLSTMV8(nn.Module):
+class SubstitutionLSTM(nn.Module):
     def __init__(self, vocab_size=33, embed_dim=256, hidden_size=512):
         super().__init__()
         self.vocab_size = vocab_size
         self.SOS_TOKEN = 1
-        self.hidden_size = hidden_size
         
         self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
         
-        # Conv1D input'u [Batch, Embed, Seq] bekler.
-        # Kernel size 3: (Sol, Merkez, Sağ) -> Trigram penceresi görür.
-        self.context_encoder = nn.Sequential(
-            # Katman 1: Embed -> Hidden
-            ResidualConv1D(embed_dim, hidden_size, kernel_size=3, dropout=0.2),
-            # Katman 2: Hidden -> Hidden (Derinlik katar, daha geniş alanı görür)
-            ResidualConv1D(hidden_size, hidden_size, kernel_size=3, dropout=0.2)
+        # --- 1. CNN Feature Extractor ---
+        # Amaç: Kısa vadeli harf ilişkilerini (bigram/trigram) yakalamak
+        # LSTM'e ham harf yerine "işlenmiş özellik" vermek.
+        self.local_cnn = nn.Sequential(
+            ResidualConv1D(embed_dim, hidden_size, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            ResidualConv1D(hidden_size, hidden_size, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Dropout(0.2)
         )
         
-        # 2. Frequency Encoder
+        # --- 2. Bi-LSTM Context Encoder (Beyin) ---
+        # Amaç: CNN'den gelen özellikleri uzun vadeli bağlama oturtmak.
+        self.global_lstm = nn.LSTM(
+            input_size=hidden_size, # CNN'in çıkışı buraya giriyor
+            hidden_size=hidden_size // 2,
+            num_layers=2, # Biraz daha derinleşti
+            batch_first=True,
+            bidirectional=True # Sağı ve solu görüyor
+        )
+        
+        # Frequency Encoder (Aynı kalıyor)
         self.freq_encoder = nn.Sequential(
             nn.Linear(vocab_size, 64),
             nn.ReLU(),
             nn.Linear(64, 32)
         )
         
-        # 3. Main Solver RNN
-        # Inputs: 
-        #   [Cipher Embed (256)] + 
-        #   [Prev Plain Embed (256)] + 
-        #   [Local Conv Context (512)] +
-        #   [Global Freq Stats (32)]
-        # Total: 256 + 256 + 512 + 32 = 1056
-        
-        rnn_input_size = embed_dim * 2 + hidden_size + 32
-        
+        # Main Solver RNN (Decoder)
+        # Input: [Cipher Embed] + [Prev Plain Embed] + [Context (LSTM out)] + [Freq]
+        # Size: 256 + 256 + 512 + 32 = 1056
         self.rnn = nn.LSTM(
-            input_size=rnn_input_size,
+            input_size=embed_dim * 2 + hidden_size + 32,
             hidden_size=hidden_size,
-            num_layers=3,
+            num_layers=2, # Decoder'ı 3'ten 2'ye düşürebiliriz, yükü Encoder aldı
             dropout=0.2,
             batch_first=True,
             bidirectional=False
@@ -102,23 +107,23 @@ class SubstitutionLSTMV8(nn.Module):
         src_emb = self.embedding(src)
         tgt_emb = self.embedding(tgt_input)
         
-        # Conv1D [Batch, Channel, Length] ister. Bizde [Batch, Length, Channel] var.
-        # Permute ile yer değiştiriyoruz: (0, 2, 1)
-        conv_input = src_emb.permute(0, 2, 1) 
+        # 1. CNN Adımı (Permute gerekli: Batch, Channel, Seq)
+        cnn_in = src_emb.permute(0, 2, 1)
+        cnn_out = self.local_cnn(cnn_in)
         
-        # Encoder'dan geçir
-        conv_out = self.context_encoder(conv_input) # Çıktı: [Batch, Hidden, Length]
+        # 2. LSTM Adımı (Tekrar düzelt: Batch, Seq, Channel)
+        lstm_in = cnn_out.permute(0, 2, 1)
+        cipher_context, _ = self.global_lstm(lstm_in) # Çıktı: [Batch, Seq, Hidden]
         
-        # Tekrar eski haline getir: [Batch, Length, Hidden]
-        cipher_context = conv_out.permute(0, 2, 1)
-        
-        global_freqs = self.compute_global_stats(src) # [B, V]
-        freq_features = self.freq_encoder(global_freqs) # [B, 32]
+        # --- B. Global Frekans ---
+        global_freqs = self.compute_global_stats(src)
+        freq_features = self.freq_encoder(global_freqs)
         
         seq_len = src.size(1)
         freq_features_expanded = freq_features.unsqueeze(1).expand(-1, seq_len, -1)
         
-        # Combine everything
+        # --- C. Birleştirme ---
+        # Artık cipher_context sadece yerel değil, hem yerel hem global bilgi taşıyor.
         combined_input = torch.cat((src_emb, tgt_emb, cipher_context, freq_features_expanded), dim=2)
         
         outputs, _ = self.rnn(combined_input)
@@ -132,14 +137,15 @@ class SubstitutionLSTMV8(nn.Module):
         
         src_emb = self.embedding(src)
         
-        # --- Precompute Context (Conv1D Parallel) ---
-        conv_input = src_emb.permute(0, 2, 1)
-        conv_out = self.context_encoder(conv_input)
-        cipher_context = conv_out.permute(0, 2, 1) # [B, S, Hidden]
+        cnn_in = src_emb.permute(0, 2, 1)
+        cnn_out = self.local_cnn(cnn_in)
         
-        # Precompute Frequencies
+        lstm_in = cnn_out.permute(0, 2, 1)
+        cipher_context, _ = self.global_lstm(lstm_in) # Çıktı: [Batch, Seq, Hidden]
+        
+        # --- B. Global Frekans ---
         global_freqs = self.compute_global_stats(src)
-        freq_features = self.freq_encoder(global_freqs) # [B, 32]
+        freq_features = self.freq_encoder(global_freqs)
         
         current_input_token = torch.full((batch_size, 1), self.SOS_TOKEN, dtype=torch.long, device=device)
         h = None
@@ -169,14 +175,18 @@ class SubstitutionLSTMV8(nn.Module):
         batch_size, seq_len = src.size()
         device = src.device
         
-        # --- Precompute Encoders ---
+        # --- Precompute Encoders (HİBRİT YAPI) ---
         src_emb = self.embedding(src)
         
-        # Conv1D için Permute
-        conv_input = src_emb.permute(0, 2, 1)
-        conv_out = self.context_encoder(conv_input)
-        cipher_context = conv_out.permute(0, 2, 1) # [B, S, Hidden]
+        # 1. CNN Adımı
+        cnn_in = src_emb.permute(0, 2, 1) # [B, Embed, Seq]
+        cnn_out = self.local_cnn(cnn_in)  # [B, Hidden, Seq] -> Burada isim local_cnn olmalı
+        
+        # 2. LSTM Adımı (Eksikti, eklendi)
+        lstm_in = cnn_out.permute(0, 2, 1) # [B, Seq, Hidden]
+        cipher_context, _ = self.global_lstm(lstm_in) # [B, Seq, Hidden]
 
+        # Global Frekanslar
         global_freqs = self.compute_global_stats(src)
         freq_features = self.freq_encoder(global_freqs).unsqueeze(1)
 
@@ -185,8 +195,8 @@ class SubstitutionLSTMV8(nn.Module):
         for b in range(batch_size):
             hypotheses = [(0.0, self.SOS_TOKEN, None, [])]
             
-            curr_cipher_emb = src_emb[b]    # [Seq, Embed]
-            curr_context = cipher_context[b] # [Seq, Hidden] (Precomputed Conv Features)
+            curr_cipher_emb = src_emb[b]     # [Seq, Embed]
+            curr_context = cipher_context[b] # [Seq, Hidden] (Artık LSTM çıkışı)
             curr_freq = freq_features[b]     # [1, 32]
             
             for t in range(seq_len):
