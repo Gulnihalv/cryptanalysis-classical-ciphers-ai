@@ -13,7 +13,7 @@ if project_root not in sys.path:
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
-from models.substitution_v8.lightning_module_v8 import SubstitutionCipherSolver
+from models.substitution_v8.lightning_module_v8 import SubstitutionCipherSolverV8
 
 ALPHABET_CHARS = "abcçdefgğhıijklmnoöprsştuüvyz"
 PAD_TOKEN = "<PAD>"
@@ -23,7 +23,7 @@ SPACE_TOKEN = " "
 
 SPECIAL_TOKENS = [PAD_TOKEN, SOS_TOKEN, EOS_TOKEN, SPACE_TOKEN]
 FULL_ALPHABET = SPECIAL_TOKENS + list(ALPHABET_CHARS)
-CHECKPOINT_PATH = "checkpoints_v7.4/substitution-epoch=47-val_gen_acc=0.930.ckpt"
+CHECKPOINT_PATH = "checkpoints_v8/substitution-epoch=62-val_gen_acc=0.936.ckpt"
 
 # Haritalar
 char2idx = {c: i for i, c in enumerate(FULL_ALPHABET)}
@@ -60,7 +60,7 @@ def decode_tensor(indices_tensor):
 
 
 def run_inference(input_text):
-    model = SubstitutionCipherSolver.load_from_checkpoint(
+    model = SubstitutionCipherSolverV8.load_from_checkpoint(
         CHECKPOINT_PATH,
         map_location=DEVICE
     )
