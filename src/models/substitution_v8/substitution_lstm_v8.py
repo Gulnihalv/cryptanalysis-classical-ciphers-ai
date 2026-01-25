@@ -54,7 +54,7 @@ class SubstitutionLSTM(nn.Module):
         # Amaç: Kısa vadeli harf ilişkilerini (bigram/trigram) yakalamak
         # LSTM'e ham harf yerine "işlenmiş özellik" vermek.
         self.local_cnn = nn.Sequential(
-            ResidualConv1D(embed_dim, hidden_size, kernel_size=3),
+            ResidualConv1D(embed_dim, hidden_size, kernel_size=1),
             nn.ReLU(),
             nn.Dropout(0.2),
             ResidualConv1D(hidden_size, hidden_size, kernel_size=3),
@@ -85,7 +85,7 @@ class SubstitutionLSTM(nn.Module):
         self.rnn = nn.LSTM(
             input_size=embed_dim * 2 + hidden_size + 32,
             hidden_size=hidden_size,
-            num_layers=2, # Decoder'ı 3'ten 2'ye düşürebiliriz, yükü Encoder aldı
+            num_layers=3,
             dropout=0.2,
             batch_first=True,
             bidirectional=False
