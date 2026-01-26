@@ -23,28 +23,31 @@ class SubstitutionCipherSolver(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         src, tgt_input, tgt_output = batch
-
-        # Decay teacher forcing
         epoch_shifted = max(0, self.current_epoch - 5)
-        teacher_forcing_ratio = max(0.0, 1.0 - (epoch_shifted * 0.05))
+        teacher_forcing_ratio = max(0.2, 1.0 - (epoch_shifted * 0.03)) 
         use_teacher_forcing = torch.rand(1).item() < teacher_forcing_ratio
 
         if use_teacher_forcing:
             logits = self(src, tgt_input=tgt_input)
         else:
+            
             # 1. Precompute static features once
-            src_emb = self.model.embedding(src)
+            src_emb = self.model.embedding(src) # [Batch, Seq, Embed]
             
             # A. CNN
             cnn_in = src_emb.permute(0, 2, 1)
-            cnn_out = self.model.local_cnn(cnn_in)
+            cnn_out = self.model.local_cnn(cnn_in) # [Batch, Hidden, Seq]
             
-            # B. LSTM
-            lstm_in = cnn_out.permute(0, 2, 1)
+            # B. LSTM Hazırlığı (DÜZELTME BURADA)
+            cnn_out_permuted = cnn_out.permute(0, 2, 1) # [Batch, Seq, Hidden]
+            
+            #  Embedding ile birleştirme
+            lstm_in = torch.cat((cnn_out_permuted, src_emb), dim=2) 
+            
             cipher_context, _ = self.model.global_lstm(lstm_in) 
-
+            
             global_freqs = self.model.compute_global_stats(src)
-            freq_features = self.model.freq_encoder(global_freqs) # [B, 32]
+            freq_features = self.model.freq_encoder(global_freqs)
             
             batch_size, seq_len = src.size()
             outputs = []
@@ -58,10 +61,9 @@ class SubstitutionCipherSolver(pl.LightningModule):
                 tgt_emb = self.model.embedding(current_input)
                 context = cipher_context[:, t:t+1, :]
 
-                # We simply add a time dimension: [B, 32] -> [B, 1, 32]
                 freq_t = freq_features.unsqueeze(1)
                 
-                # Combine (Sizes match the new LSTM definition)
+                # Combine
                 combined_input = torch.cat((cipher_char_emb, tgt_emb, context, freq_t), dim=2)
                 
                 # LSTM Step
