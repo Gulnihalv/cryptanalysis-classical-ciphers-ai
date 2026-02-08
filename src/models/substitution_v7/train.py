@@ -71,7 +71,7 @@ def main():
     # Callback
     # callbacklerde gerçek sonuca göre devam etmek için val_gen_acc kullanıldı val_loss yerine
     checkpoint_callback = ModelCheckpoint(
-        dirpath='checkpoints_v7.4',
+        dirpath='checkpoints_v7.5',
         filename='substitution-{epoch:02d}-{val_gen_acc:.3f}',
         monitor='val_gen_acc',
         mode='max',
@@ -88,7 +88,7 @@ def main():
     )
 
     # TensorBoard Logları 
-    logger = TensorBoardLogger("tb_logs", name="cipher_model")
+    logger = TensorBoardLogger("tb_logs", name="cipher_model7.5")
 
     # Model Eğitimi
     lr_monitor = LearningRateMonitor(logging_interval='epoch')

@@ -25,7 +25,7 @@ S_CONFIG_V5 = {
 }
 
 S_CONFIG_V7 = {
-    'text_path': 'data/processed/wiki_processed_new_tr.txt',     # Veri setinin yolu
+    'text_path': 'data/processed/wiki_news_processed.txt',     # Veri setinin yolu
     'alphabet': "abcçdefgğhıijklmnoöprsştuüvyz", # Şifrelenecek karakterler
     'embed_dim': 256,    
     'hidden_size': 512,
