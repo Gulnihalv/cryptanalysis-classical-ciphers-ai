@@ -34,7 +34,7 @@ class SubstitutionLSTM(nn.Module):
             input_size=embed_dim * 2 + hidden_size + 32,
             hidden_size=hidden_size,
             num_layers=3,
-            dropout=0.2,
+            dropout=0.1,
             batch_first=True,
             bidirectional=False
         )
