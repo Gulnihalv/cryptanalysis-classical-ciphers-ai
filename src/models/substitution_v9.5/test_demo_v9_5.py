@@ -13,7 +13,7 @@ if project_root not in sys.path:
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
-from models.substitution_v8.lightning_module_v8 import SubstitutionCipherSolverV8
+from lightning_module_v9_5 import SubstitutionCipherSolver
 
 ALPHABET_CHARS = "abcçdefgğhıijklmnoöprsştuüvyz"
 PAD_TOKEN = "<PAD>"
@@ -23,7 +23,7 @@ SPACE_TOKEN = " "
 
 SPECIAL_TOKENS = [PAD_TOKEN, SOS_TOKEN, EOS_TOKEN, SPACE_TOKEN]
 FULL_ALPHABET = SPECIAL_TOKENS + list(ALPHABET_CHARS)
-CHECKPOINT_PATH = "checkpoints_v8/substitution-epoch=62-val_gen_acc=0.936.ckpt"
+CHECKPOINT_PATH = "checkpoints_v9.5/substitution-epoch=55-val_gen_acc=0.931.ckpt"
 
 # Haritalar
 char2idx = {c: i for i, c in enumerate(FULL_ALPHABET)}
@@ -60,7 +60,7 @@ def decode_tensor(indices_tensor):
 
 
 def run_inference(input_text):
-    model = SubstitutionCipherSolverV8.load_from_checkpoint(
+    model = SubstitutionCipherSolver.load_from_checkpoint(
         CHECKPOINT_PATH,
         map_location=DEVICE
     )
@@ -101,7 +101,7 @@ if __name__ == "__main__":
     test_text_15 = "o günü bir vaka gibi bütün canlılığıyla pek yakından hatırlarım büyük merasim salonu bayraklarla süslenmişti biz talebe elbisesini son defa giyinmiş ve bu salonda sıra sıra yerlerimizi almıştık hazırlık kıtası ve mektep devresi olarak ihtiyat zabit mektebinde geçirdiğimiz bir sene şimdi yapılacak merasimle sona ermiş olacaktı"
     
     try:
-        run_inference(test_text_14)
+        run_inference(test_text_4)
     except FileNotFoundError:
         print("\nDosya bulunamadı")
     except Exception as e:
