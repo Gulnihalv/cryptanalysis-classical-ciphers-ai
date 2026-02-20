@@ -1,7 +1,7 @@
 import torch
 from vigenere_transformer import VigenereLightningModule
 
-checkpoint_path = "checkpoints_vigenere/vigenere-epoch=18-val_loss=0.17.ckpt"
+checkpoint_path = "checkpoints_vigenere2/vigenere-epoch=24-val_loss=0.04.ckpt"
 model = VigenereLightningModule.load_from_checkpoint(checkpoint_path)
 model.eval()
 
@@ -13,8 +13,8 @@ alphabet = "abcçdefgğhıijklmnoöprsştuüvyz"
 char2int = {c: i for i, c in enumerate(list(alphabet))}
 int2char = {i: c for i, c in enumerate(list(alphabet))}
 
-plaintext = "güneşli ve sıcak bir yaz günüydü şehrin meydanındaki saat öğle sonu ikiyi gösteriyordu k nin dağ köylerinden on on bir yaşlarında iri kara gözlü işlemeli sarı bir mintanla şayak bir şalvar giyinmiş genç irisi bir çocuk elinde tabancası herkesin şaşkın bakışları arasından hükümet konağına doğru koşuyordu çocuğun iki üç yüz metre kadar gerisinden babasıyla amcası onu hızlı adımlarla izliyorlardı ve o da arkasından gidiyordu" # minimum çözebildiği uzunluk bu key değeri ile
-key = [2, 5, 1, 0, 4, 7, 3, 12, 13, 14] # Rastgele anahtar (C, F, B, A, E) -> Key Len: 5
+plaintext = "güneşli ve sıcak bir yaz günüydü şehrin meydanındaki saat öğle sonu ikiyi gösteriyordu k"
+key = [2, 5, 1, 0, 9, 10, 21,23]
 key_len_val = len(key)
 
 ciphertext_indices = []

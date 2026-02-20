@@ -53,7 +53,10 @@ class VigenereDataModule(pl.LightningDataModule):
             self.train_dataset, 
             batch_size=self.batch_size, 
             shuffle=True,
-            num_workers=0
+            # num_workers=4, 
+            # persistent_workers=True,
+            # pin_memory=True,
+            # prefetch_factor=2
         )
     
     def val_dataloader(self):

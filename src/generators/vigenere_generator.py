@@ -6,7 +6,6 @@ class VigenereKeystreamGenerator(Dataset):
     def __init__(self, text_path, alphabet, seq_len, min_key_len=3, max_key_len=12):
         super().__init__()
 
-        # --- ALFABE VE TOKENLER ---
         self.crypto_alphabet = list(alphabet) 
         self.crypto_vocab_size = len(self.crypto_alphabet)
         
@@ -69,7 +68,6 @@ class VigenereKeystreamGenerator(Dataset):
 
         for char in text_chunk:
             if char == self.space_char:
-                # --- BOŞLUK DURUMU ---
                 # Input: Boşluk Tokeni
                 src_indices.append(self.SPACE_TOKEN_IDX)
                 tgt_indices.append(self.SPACE_TOKEN_IDX)
@@ -81,7 +79,6 @@ class VigenereKeystreamGenerator(Dataset):
                 cyclic_positions.append(key_len)
             
             elif char in self.char2int:
-                # --- HARF DURUMU ---
                 p_val = self.char2int[char]
                 
                 # O anki anahtar değeri
@@ -93,7 +90,7 @@ class VigenereKeystreamGenerator(Dataset):
                 src_indices.append(c_val)
                 tgt_indices.append(p_val)
                 
-                # HEDEF: Modelin bu 'current_key'i (0-28) tahmin etmesini istiyoruz
+                # Modelin bu 'current_key'i (0-28) tahmin etmesi gerekiyor
                 keystream_target.append(current_key)
                 
                 # Cycle Pos: 0, 1, 2...
@@ -104,24 +101,19 @@ class VigenereKeystreamGenerator(Dataset):
         return src_indices, tgt_indices, keystream_target, cyclic_positions
 
     def __getitem__(self, index):
-        # 1. Chunk al
         text_chunk = self.text[self.chunks[index][0]: self.chunks[index][1]]
 
-        # 2. Dinamik Kırpma (Senin kodun - aynı)
-        if len(text_chunk) > 60 and random.random() < 0.5:
-            words = text_chunk.split(" ")
-            if len(words) > 3:
-                num_words = random.randint(3, len(words))
-                start = random.randint(0, len(words) - num_words)
-                text_chunk = " ".join(words[start:start+num_words])
+        # Dinamik Kırpma modelin her boyutta çalışabilrmesi için
+        if len(text_chunk) > 40 and random.random() < 0.15:
+            new_len = random.randint(20, len(text_chunk))
+            text_chunk = text_chunk[:new_len]
 
-        # 3. Şifreleme ve Hedef Oluşturma
+        # Şifreleme ve Hedef Oluşturma
         key_indices, k_len = self.generate_random_key()
         
-        # Fonksiyon artık keystream_target'ı da döndürüyor
         src, tgt, key_target, cyc_pos = self.encrypt_vigenere_skip_space(text_chunk, key_indices)
 
-        # 4. Padding İşlemleri
+        # Padding İşlemleri
         pad_len = self.seq_len - len(src)
         
         # Input Padding

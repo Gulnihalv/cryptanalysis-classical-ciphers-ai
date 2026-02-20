@@ -89,7 +89,7 @@ class VigenereLightningModule(pl.LightningModule):
         optimizer = torch.optim.AdamW(
             self.parameters(), 
             lr=self.hparams.lr, 
-            weight_decay=1e-4,
+            weight_decay=0.01,
             betas=(0.9, 0.98),
             eps=1e-9
         )
