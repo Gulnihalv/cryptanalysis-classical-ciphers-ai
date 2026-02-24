@@ -13,8 +13,8 @@ alphabet = "abcçdefgğhıijklmnoöprsştuüvyz"
 char2int = {c: i for i, c in enumerate(list(alphabet))}
 int2char = {i: c for i, c in enumerate(list(alphabet))}
 
-plaintext = "güneşli ve sıcak bir yaz günüydü şehrin meydanındaki saat öğle sonu ikiyi gösteriyordu k"
-key = [2, 5, 1, 0, 9, 10, 21,23]
+plaintext = "bugün gezdim yedim"
+key = [2, 5]
 key_len_val = len(key)
 
 ciphertext_indices = []
