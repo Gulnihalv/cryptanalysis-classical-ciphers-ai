@@ -47,7 +47,7 @@ def main():
     trainer = pl.Trainer(
         accelerator="mps",
         devices=1,
-        max_epochs=100,
+        max_epochs=150,
         callbacks=[checkpoint_callback, early_stop_callback],
         logger=logger,
         gradient_clip_val=1.0,
@@ -55,7 +55,8 @@ def main():
         accumulate_grad_batches=4
     )
 
-    trainer.fit(model, datamodule=dm)
+    #trainer.fit(model, datamodule=dm)
+    trainer.fit(model, datamodule=dm, ckpt_path="checkpoints_blind/predictor-epoch=32-val_acc=0.758-val_top2_acc=0.000.ckpt")
 
 if __name__ == '__main__':
     main()

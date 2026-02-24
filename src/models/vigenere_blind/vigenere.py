@@ -13,7 +13,7 @@ class VigenereBlindSolver(pl.LightningModule):
         self.num_classes = max_key_len - min_key_len + 1
         self.char_emb = nn.Embedding(vocab_size + 1, d_model, padding_idx=pad_idx)
         self.pos_emb = nn.Embedding(max_len, d_model)
-        self.ic_temperature = nn.Parameter(torch.tensor([2.0]))
+        #self.ic_temperature = nn.Parameter(torch.tensor([2.0]))
 
         self.cycle_embs = nn.ModuleList([
             nn.Embedding(k, d_model) for k in range(min_key_len, max_key_len + 1)
@@ -39,8 +39,10 @@ class VigenereBlindSolver(pl.LightningModule):
         batch_size, seq_len = src.shape
         device = src.device
         ic_scores = self._compute_ic(src)
-        scaled_ic = ic_scores * self.ic_temperature.clamp(min=0.1)
-        length_weights = F.softmax(scaled_ic, dim=-1)
+        #scaled_ic = ic_scores * self.ic_temperature.clamp(min=0.1)
+        length_weights = F.softmax(ic_scores * 50, dim=-1)
+
+        self._last_length_weights = length_weights.detach()
 
         soft_cycle_emb = torch.zeros(batch_size, seq_len, self.char_emb.embedding_dim, device=device)
         positions = torch.arange(seq_len, device=device).unsqueeze(0) # [1, Seq]
@@ -83,7 +85,11 @@ class VigenereBlindSolver(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         loss, acc = self._shared_step(batch)
 
-        self.log("ic_temp_value", self.ic_temperature.item(), prog_bar=True, on_step=False, on_epoch=True)
+        lw = self._last_length_weights
+        entropy = -(lw * (lw + 1e-9).log()).sum(dim=-1).mean()
+        self.log("length_entropy", entropy, prog_bar=True, on_step=False, on_epoch=True) # loss'a katmıyoruz sadece loglama için
+
+        #self.log("ic_temp_value", self.ic_temperature.item(), prog_bar=True, on_step=False, on_epoch=True)
         
         self.log("train_loss", loss, prog_bar=True, on_step=False, on_epoch=True)
         self.log("train_acc", acc, prog_bar=True, on_step=False, on_epoch=True)
