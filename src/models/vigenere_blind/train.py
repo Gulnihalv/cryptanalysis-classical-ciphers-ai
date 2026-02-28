@@ -56,7 +56,7 @@ def main():
     )
 
     #trainer.fit(model, datamodule=dm)
-    trainer.fit(model, datamodule=dm, ckpt_path="checkpoints_blind/predictor-epoch=32-val_acc=0.758-val_top2_acc=0.000.ckpt")
+    trainer.fit(model, datamodule=dm, ckpt_path="checkpoints_blind/predictor-epoch=58-val_acc=0.949-val_top2_acc=0.000.ckpt")
 
 if __name__ == '__main__':
     main()

@@ -40,7 +40,7 @@ class VigenereBlindSolver(pl.LightningModule):
         device = src.device
         ic_scores = self._compute_ic(src)
         #scaled_ic = ic_scores * self.ic_temperature.clamp(min=0.1)
-        length_weights = F.softmax(ic_scores * 50, dim=-1)
+        length_weights = F.softmax(ic_scores * 200, dim=-1)
 
         self._last_length_weights = length_weights.detach()
 
