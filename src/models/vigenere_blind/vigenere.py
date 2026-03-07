@@ -40,7 +40,7 @@ class VigenereBlindSolver(pl.LightningModule):
         device = src.device
         ic_scores = self._compute_ic(src)
         #scaled_ic = ic_scores * self.ic_temperature.clamp(min=0.1)
-        length_weights = F.softmax(ic_scores * 200, dim=-1)
+        length_weights = F.softmax(ic_scores * 100, dim=-1)
 
         self._last_length_weights = length_weights.detach()
 
@@ -126,3 +126,32 @@ class VigenereBlindSolver(pl.LightningModule):
         }
 
         return [optimizer], [scheduler]
+    
+    def decrypt(self, cipher_indices, dataset):
+        self.eval()
+
+        if isinstance(cipher_indices, list):
+            src = torch.tensor(cipher_indices, dtype=torch.long).unsqueeze(0).to(self.device)
+        else:
+            src = cipher_indices.unsqueeze(0).to(self.device) if cipher_indices.dim() == 1 else cipher_indices.to(self.device)
+
+        with torch.no_grad():
+            logits = self(src)  # [1, L, vocab_size]
+            predicted_key = logits.argmax(dim=-1)  # [1, L]
+
+        # Decrypt: P = (C - K) % mod
+        plain_indices = (src - predicted_key) % dataset.crypto_vocab_size
+
+        decoded_text = []
+        plain_list = plain_indices[0].cpu().tolist()
+        src_list = src[0].cpu().tolist()
+
+        for p_idx, s_idx in zip(plain_list, src_list):
+            if s_idx == dataset.PAD_TOKEN_IDX:
+                break
+            elif p_idx in dataset.int2char:
+                decoded_text.append(dataset.int2char[p_idx])
+            else:
+                decoded_text.append("?")
+
+        return "".join(decoded_text)
