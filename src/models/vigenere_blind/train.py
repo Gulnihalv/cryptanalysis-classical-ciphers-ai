@@ -1,9 +1,28 @@
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
+from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, Callback
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from data_module import VigenereDataModule
 from vigenere import VigenereBlindSolver
+
+class CurriculumCallback(Callback):
+    def on_train_epoch_start(self, trainer, pl_module):
+        epoch = trainer.current_epoch
+        
+        if epoch < 30:
+            stage = 0
+        elif epoch < 60:
+            stage = 1
+        elif epoch < 90:
+            stage = 2
+        else:
+            stage = 3
+            
+        if hasattr(trainer.datamodule, 'train_dataset'):
+            trainer.datamodule.train_dataset.dataset.set_curriculum_stage(stage)
+        
+        if hasattr(trainer.datamodule, 'val_dataset'):
+            trainer.datamodule.val_dataset.dataset.set_curriculum_stage(stage)
 
 def main():
     MAX_K_LEN = 12
@@ -42,13 +61,15 @@ def main():
         mode="max"
     )
 
+    curriculum_callback = CurriculumCallback()
+
     logger = TensorBoardLogger("tb_logs", name="key_recovery")
 
     trainer = pl.Trainer(
         accelerator="mps",
         devices=1,
-        max_epochs=150,
-        callbacks=[checkpoint_callback, early_stop_callback],
+        max_epochs=250,
+        callbacks=[checkpoint_callback, early_stop_callback, curriculum_callback],
         logger=logger,
         gradient_clip_val=1.0,
         log_every_n_steps=10,
@@ -56,7 +77,7 @@ def main():
     )
 
     #trainer.fit(model, datamodule=dm)
-    trainer.fit(model, datamodule=dm, ckpt_path="checkpoints_blind/predictor-epoch=58-val_acc=0.949-val_top2_acc=0.000.ckpt")
+    trainer.fit(model, datamodule=dm, ckpt_path="checkpoints_blind/predictor-epoch=136-val_acc=0.966-val_top2_acc=0.000.ckpt")
 
 if __name__ == '__main__':
     main()

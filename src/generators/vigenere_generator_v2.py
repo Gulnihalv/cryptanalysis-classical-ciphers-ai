@@ -4,7 +4,7 @@ from torch.utils.data import Dataset
 
 class VigenereKeystreamGenerator(Dataset):
     CHUNK_SIZES   = [128, 256, 512]
-    CHUNK_WEIGHTS = [0.2, 0.6, 0.2]
+    CHUNK_WEIGHTS = [0.1, 0.4, 0.5]
 
     def __init__(self, text_path, alphabet, min_key_len=3, max_key_len=12):
         super().__init__()
@@ -42,6 +42,19 @@ class VigenereKeystreamGenerator(Dataset):
 
     def _pick_chunk_size(self):
         return random.choices(self.CHUNK_SIZES, weights=self.CHUNK_WEIGHTS, k=1)[0]
+    
+    def set_curriculum_stage(self, stage):
+        """Curriculum Learning için ağırlıkları günceller."""
+        if stage == 0:
+            self.CHUNK_WEIGHTS = [0.05, 0.45, 0.50]
+        elif stage == 1:
+            self.CHUNK_WEIGHTS = [0.20, 0.50, 0.30]
+        elif stage == 2:
+            self.CHUNK_WEIGHTS = [0.50, 0.35, 0.15]
+        elif stage == 3:
+            self.CHUNK_WEIGHTS = [0.70, 0.20, 0.10]
+        
+        print(f"Curriculum Stage {stage} Active: Weights updated to {self.CHUNK_WEIGHTS}")
 
     def generate_random_key(self):
         k_len      = random.randint(self.min_key_len, self.max_key_len)

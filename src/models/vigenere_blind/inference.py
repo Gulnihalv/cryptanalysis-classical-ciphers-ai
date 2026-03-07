@@ -13,9 +13,9 @@ alphabet = "abcçdefgğhıijklmnoöprsştuüvyz"
 char2int = {c: i for i, c in enumerate(list(alphabet))}
 int2char = {i: c for i, c in enumerate(list(alphabet))}
 
-plaintext = "güneşli ve sıcak bir yaz günüydü şehrin meydanındaki saat öğle sonu ikiyi gösteriyordu k nin dağ köylerinden on on bir yaşlarında iri kara gözlü işlemeli sarı bir mintanla şayak bir şalvar giyinmiş genç irisi bir çocuk elinde tabancası herkesin şaşkın bakışları arasından hükümet konağına doğru koşuyordu çocuğun iki üç yüz metre kadar"
+plaintext = "güneşli ve sıcak bir yaz günüydü şehrin meydanındaki saat öğle sonu ikiyi gösteriyordu k nin dağ köylerinden on "
 plaintext = plaintext.replace(" ", "")
-key = [2, 5, 8, 12, 3, 4, 8, 16, 18, 20, 1, 9]
+key = [2, 5]
 key_len_val = len(key)
 
 ciphertext_indices = []
