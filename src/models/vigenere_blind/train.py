@@ -48,7 +48,7 @@ def main():
     )
 
     checkpoint_callback = ModelCheckpoint(
-        dirpath="checkpoints_blind",
+        dirpath="checkpoints_blind2",
         filename="predictor-{epoch:02d}-{val_acc:.3f}-{val_top2_acc:.3f}",
         save_top_k=10,
         monitor="val_acc",
@@ -63,7 +63,7 @@ def main():
 
     curriculum_callback = CurriculumCallback()
 
-    logger = TensorBoardLogger("tb_logs", name="key_recovery")
+    logger = TensorBoardLogger("tb_logs", name="key_recovery2")
 
     trainer = pl.Trainer(
         accelerator="mps",
