@@ -42,15 +42,15 @@ def main():
         vocab_size=dm.dataset.crypto_vocab_size,
         min_key_len=MIN_K_LEN,
         max_key_len=MAX_K_LEN,
-        d_model=256,
+        d_model=512,
         nhead=4,
-        num_layers=4
+        num_layers=6
     )
 
     checkpoint_callback = ModelCheckpoint(
         dirpath="checkpoints_blind",
         filename="predictor-{epoch:02d}-{val_acc:.3f}-{val_top2_acc:.3f}",
-        save_top_k=2,
+        save_top_k=10,
         monitor="val_acc",
         mode="max"
     )
@@ -76,8 +76,8 @@ def main():
         accumulate_grad_batches=4
     )
 
-    #trainer.fit(model, datamodule=dm)
-    trainer.fit(model, datamodule=dm, ckpt_path="checkpoints_blind/predictor-epoch=136-val_acc=0.966-val_top2_acc=0.000.ckpt")
+    trainer.fit(model, datamodule=dm)
+    #trainer.fit(model, datamodule=dm, ckpt_path="checkpoints_blind/predictor-epoch=138-val_acc=0.983-val_top2_acc=0.000.ckpt")
 
 if __name__ == '__main__':
     main()

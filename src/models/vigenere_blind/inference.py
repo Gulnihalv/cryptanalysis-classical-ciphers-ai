@@ -1,8 +1,7 @@
 import torch
 from vigenere import VigenereBlindSolver
 
-
-model = VigenereBlindSolver.load_from_checkpoint("checkpoints_blind/predictor-epoch=134-val_acc=0.967-val_top2_acc=0.000.ckpt")
+model = VigenereBlindSolver.load_from_checkpoint("checkpoints_blind/predictor-epoch=144-val_acc=0.982-val_top2_acc=0.000.ckpt")
 model.eval()
 
 # M1 (MPS) veya CPU seçimi
@@ -13,9 +12,9 @@ alphabet = "abcçdefgğhıijklmnoöprsştuüvyz"
 char2int = {c: i for i, c in enumerate(list(alphabet))}
 int2char = {i: c for i, c in enumerate(list(alphabet))}
 
-plaintext = "güneşli ve sıcak bir yaz günüydü şehrin meydanındaki saat öğle sonu ikiyi gösteriyordu k nin dağ köylerinden on "
+plaintext = "düşünce sistemindeki temel görüş insan aklının aydınlattığı kesin doğrulara ve bilgiye doğru ilerlemektir"
 plaintext = plaintext.replace(" ", "")
-key = [2, 5]
+key = [2, 5, 8, 12]
 key_len_val = len(key)
 
 ciphertext_indices = []

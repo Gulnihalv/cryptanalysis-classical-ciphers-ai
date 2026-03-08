@@ -27,24 +27,35 @@ class VigenereDataModule(pl.LightningDataModule):
         self.val_split = val_split
         
     def setup(self, stage=None):
-        # Full dataset oluştur
-        full_dataset = VigenereKeystreamGenerator(
+        # Train dataset — curriculum learning uygulanacak
+        self.train_full = VigenereKeystreamGenerator(
             text_path=self.text_path,
             alphabet=self.alphabet,
             min_key_len=self.min_key_len,
             max_key_len=self.max_key_len
         )
-        
-        # Train/Val split
-        total_len = len(full_dataset)
+
+        self.val_full = VigenereKeystreamGenerator(
+            text_path=self.text_path,
+            alphabet=self.alphabet,
+            min_key_len=self.min_key_len,
+            max_key_len=self.max_key_len
+        )
+        # val için sabit dağılım
+        self.val_full.CHUNK_WEIGHTS = [0.33, 0.34, 0.33]
+
+        total_len = len(self.train_full)
         val_len = int(total_len * self.val_split)
         train_len = total_len - val_len
-        
-        self.train_dataset, self.val_dataset = torch.utils.data.random_split(
-            full_dataset, [train_len, val_len]
+
+        self.train_dataset, _ = torch.utils.data.random_split(
+            self.train_full, [train_len, val_len]
         )
-        
-        self.dataset = full_dataset
+        self.val_dataset, _ = torch.utils.data.random_split(
+            self.val_full, [val_len, train_len]
+        )
+
+        self.dataset = self.train_full
         
     def train_dataloader(self):
         return DataLoader(
