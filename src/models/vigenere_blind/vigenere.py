@@ -80,10 +80,10 @@ class VigenereBlindSolver(pl.LightningModule):
         correct = (preds == tgt) & pad_mask
         acc = correct.sum().float() / pad_mask.sum().float().clamp(min=1e-9)
         
-        return loss, acc
+        return loss, acc, correct, pad_mask
 
     def training_step(self, batch, batch_idx):
-        loss, acc = self._shared_step(batch)
+        loss, acc, correct, pad_mask = self._shared_step(batch)
 
         lw = self._last_length_weights
         entropy = -(lw * (lw + 1e-9).log()).sum(dim=-1).mean()
@@ -96,10 +96,18 @@ class VigenereBlindSolver(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        loss, acc = self._shared_step(batch)
+        loss, acc, correct, pad_mask = self._shared_step(batch)
+        
+        for chunk_size in [128, 256, 512]:
+            mask = batch["chunk_size"] == chunk_size  # [B]
+            if mask.sum() > 0:
+                correct_k  = correct[mask]   # [mask_count, L]
+                pad_mask_k = pad_mask[mask]  # [mask_count, L]
+                acc_k = correct_k.sum().float() / pad_mask_k.sum().float().clamp(min=1e-9)
+                self.log(f"val_acc_{chunk_size}", acc_k, on_step=False, on_epoch=True)
         
         self.log("val_loss", loss, prog_bar=True, on_step=False, on_epoch=True)
-        self.log("val_acc", acc, prog_bar=True, on_step=False, on_epoch=True)
+        self.log("val_acc",  acc,  prog_bar=True, on_step=False, on_epoch=True)
         return loss
 
     def configure_optimizers(self):

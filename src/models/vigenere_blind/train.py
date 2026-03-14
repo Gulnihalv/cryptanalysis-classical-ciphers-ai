@@ -13,7 +13,7 @@ class CurriculumCallback(Callback):
             stage = 0
         elif epoch < 60:
             stage = 1
-        elif epoch < 90:
+        elif epoch < 75: # 90'dan 75'e çekiyoum
             stage = 2
         else:
             stage = 3
@@ -76,8 +76,8 @@ def main():
         accumulate_grad_batches=4
     )
 
-    trainer.fit(model, datamodule=dm)
-    #trainer.fit(model, datamodule=dm, ckpt_path="checkpoints_blind/predictor-epoch=138-val_acc=0.983-val_top2_acc=0.000.ckpt")
+    #trainer.fit(model, datamodule=dm)
+    trainer.fit(model, datamodule=dm, ckpt_path="checkpoints_blind2/predictor-epoch=74-val_acc=0.944-val_top2_acc=0.000.ckpt")
 
 if __name__ == '__main__':
     main()
