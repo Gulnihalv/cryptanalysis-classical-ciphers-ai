@@ -12,7 +12,7 @@ class VigenereBlindSolver(pl.LightningModule):
         self.max_key_len = max_key_len
         self.num_classes = max_key_len - min_key_len + 1
         self.char_emb = nn.Embedding(vocab_size + 1, d_model, padding_idx=pad_idx)
-        self.pos_emb = nn.Embedding(max_len, d_model)
+        #self.pos_emb = nn.Embedding(max_len, d_model)
         #self.ic_temperature = nn.Parameter(torch.tensor([2.0]))
 
         self.cycle_embs = nn.ModuleList([
@@ -39,7 +39,6 @@ class VigenereBlindSolver(pl.LightningModule):
         batch_size, seq_len = src.shape
         device = src.device
         ic_scores = self._compute_ic(src)
-        #scaled_ic = ic_scores * self.ic_temperature.clamp(min=0.1)
         length_weights = F.softmax(ic_scores * 100, dim=-1)
 
         self._last_length_weights = length_weights.detach()
@@ -53,7 +52,7 @@ class VigenereBlindSolver(pl.LightningModule):
             weight_k = length_weights[:, i].unsqueeze(1).unsqueeze(2) # [B, 1, 1]
             soft_cycle_emb += emb_k * weight_k
 
-        x = self.char_emb(src) + self.pos_emb(positions) + soft_cycle_emb
+        x = self.char_emb(src) + soft_cycle_emb
         encoded = self.transformer(x)
 
         return self.fc_out(encoded)
@@ -80,10 +79,10 @@ class VigenereBlindSolver(pl.LightningModule):
         correct = (preds == tgt) & pad_mask
         acc = correct.sum().float() / pad_mask.sum().float().clamp(min=1e-9)
         
-        return loss, acc, correct, pad_mask
+        return loss, acc
 
     def training_step(self, batch, batch_idx):
-        loss, acc, correct, pad_mask = self._shared_step(batch)
+        loss, acc = self._shared_step(batch)
 
         lw = self._last_length_weights
         entropy = -(lw * (lw + 1e-9).log()).sum(dim=-1).mean()
@@ -96,15 +95,7 @@ class VigenereBlindSolver(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        loss, acc, correct, pad_mask = self._shared_step(batch)
-        
-        for chunk_size in [128, 256, 512]:
-            mask = batch["chunk_size"] == chunk_size  # [B]
-            if mask.sum() > 0:
-                correct_k  = correct[mask]   # [mask_count, L]
-                pad_mask_k = pad_mask[mask]  # [mask_count, L]
-                acc_k = correct_k.sum().float() / pad_mask_k.sum().float().clamp(min=1e-9)
-                self.log(f"val_acc_{chunk_size}", acc_k, on_step=False, on_epoch=True)
+        loss, acc = self._shared_step(batch)
         
         self.log("val_loss", loss, prog_bar=True, on_step=False, on_epoch=True)
         self.log("val_acc",  acc,  prog_bar=True, on_step=False, on_epoch=True)
