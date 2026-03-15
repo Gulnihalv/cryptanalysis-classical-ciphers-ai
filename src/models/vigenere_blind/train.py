@@ -8,7 +8,7 @@ from vigenere import VigenereBlindSolver
 def main():
     MAX_K_LEN = 12
     MIN_K_LEN = 3
-    BATCH_SIZE = 32
+    BATCH_SIZE = 64
     
     dm = VigenereDataModule(
         text_path="data/processed/final_dataset_shuffled.txt",
@@ -52,11 +52,11 @@ def main():
         logger=logger,
         gradient_clip_val=1.0,
         log_every_n_steps=10,
-        accumulate_grad_batches=4
+        accumulate_grad_batches=2
     )
 
-    #trainer.fit(model, datamodule=dm)
-    trainer.fit(model, datamodule=dm, ckpt_path="checkpoints_blind/predictor-epoch=58-val_acc=0.949-val_top2_acc=0.000.ckpt")
+    trainer.fit(model, datamodule=dm)
+    #trainer.fit(model, datamodule=dm, ckpt_path="checkpoints_blind/predictor-epoch=58-val_acc=0.949-val_top2_acc=0.000.ckpt")
 
 if __name__ == '__main__':
     main()
