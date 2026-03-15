@@ -98,10 +98,6 @@ class SubstitutionTransformer(nn.Module):
 
         self._init_weights()
 
-    # ────────────────────────────────────────────────────────────────────────────
-    # Helpers
-    # ────────────────────────────────────────────────────────────────────────────
-
     def _init_weights(self):
         for p in self.parameters():
             if p.dim() > 1:
@@ -150,10 +146,6 @@ class SubstitutionTransformer(nn.Module):
         memory = self.encoder(encoder_input, src_key_padding_mask=memory_pad_mask)
         return memory, memory_pad_mask
 
-    # ────────────────────────────────────────────────────────────────────────────
-    # Forward (teacher-forced)
-    # ────────────────────────────────────────────────────────────────────────────
-
     def forward(self, src: torch.Tensor, tgt_input: torch.Tensor) -> torch.Tensor:
         """
         Args:
@@ -180,10 +172,6 @@ class SubstitutionTransformer(nn.Module):
         )  # [B, T, E]
 
         return self.fc_out(decoder_out)  # [B, T, vocab_size]
-
-    # ────────────────────────────────────────────────────────────────────────────
-    # Greedy autoregressive generation
-    # ────────────────────────────────────────────────────────────────────────────
 
     @torch.no_grad()
     def generate(self, src: torch.Tensor) -> torch.Tensor:
@@ -221,10 +209,6 @@ class SubstitutionTransformer(nn.Module):
 
         # Strip leading SOS token → [B, S]
         return generated[:, 1:]
-
-    # ────────────────────────────────────────────────────────────────────────────
-    # Beam search
-    # ────────────────────────────────────────────────────────────────────────────
 
     @torch.no_grad()
     def generate_beam(self, src: torch.Tensor, beam_width: int = 3) -> torch.Tensor:

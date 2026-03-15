@@ -52,51 +52,15 @@ class SubstitutionCipherSolverV8(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         src, tgt_input, tgt_output = batch
-        tf_ratio = self.teacher_forcing_ratio
-
-        if torch.rand(1).item() < tf_ratio:
-            # ── Teacher Forcing ─────────────────────────────────────────────────
-            logits = self.model(src, tgt_input)  # [B, S, V]
-        else:
-            # ── Scheduled Sampling (free-run) ────────────────────────────────────
-            # Run the decoder autoregressively; gradients flow through the whole
-            # sequence so the model learns to recover from its own errors.
-            B, S = src.shape
-            device = src.device
-
-            memory, memory_pad_mask = self.model._encode(src)
-
-            generated = torch.full(
-                (B, 1), self.model.SOS_TOKEN, dtype=torch.long, device=device
-            )
-            all_logits = []
-
-            for t in range(S):
-                T_cur = generated.size(1)
-                tgt_emb = self.model.pos_encoding(self.model.tgt_embedding(generated))
-                causal_mask = self.model._make_causal_mask(T_cur, device)
-                tgt_pad_mask = generated == self.model.PAD_IDX
-
-                dec_out = self.model.decoder(
-                    tgt_emb,
-                    memory,
-                    tgt_mask=causal_mask,
-                    tgt_key_padding_mask=tgt_pad_mask,
-                    memory_key_padding_mask=memory_pad_mask,
-                )
-                step_logits = self.model.fc_out(dec_out[:, -1:, :])  # [B, 1, V]
-                all_logits.append(step_logits)
-
-                next_token = step_logits.detach().argmax(dim=-1)  # [B, 1]
-                generated = torch.cat([generated, next_token], dim=1)
-
-            logits = torch.cat(all_logits, dim=1)  # [B, S, V]
+        
+        # ── Transformer için %100 Teacher Forcing (Paralel) ──────────
+        logits = self.model(src, tgt_input)  # [B, S, V]
 
         loss = self.loss_fn(
             logits.reshape(-1, self.hparams.vocab_size), tgt_output.reshape(-1)
         )
+        
         self.log("train_loss", loss, prog_bar=True)
-        self.log("tf_ratio", tf_ratio, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -123,7 +87,7 @@ class SubstitutionCipherSolverV8(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(
             self.parameters(),
-            lr=self.hparams.lr,
+            lr=1.0, 
             betas=(0.9, 0.98),
             eps=1e-9,
             weight_decay=1e-2,
@@ -144,5 +108,6 @@ class SubstitutionCipherSolverV8(pl.LightningModule):
                 "scheduler": scheduler,
                 "interval": "step",
                 "frequency": 1,
+                "strict": True,
             },
         }
