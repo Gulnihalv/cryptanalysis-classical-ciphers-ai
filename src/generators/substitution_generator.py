@@ -117,16 +117,14 @@ class SubstutionDataGenerator(Dataset):
         plain_text_indices = self.str_to_indices(plain_text)
         cipher_text_indices = self.str_to_indices(cipher_text)
 
-        # Encoder input (Padding ekle)
-        # Dinamik kırpmada seq_len sabit kaldığı için padding artacaktır, bu normal.
+        # Girdi (Source)
         src = cipher_text_indices + [self.char2idx[self.PAD_TOKEN]] * (self.seq_len - len(cipher_text_indices))
 
-        # Decoder input (Teacher Forcing)
-        tgt_input = [self.char2idx[self.SOS_TOKEN]] + plain_text_indices
-        tgt_input += [self.char2idx[self.PAD_TOKEN]] * (self.seq_len - len(tgt_input))
+        # Çıktı — SOS/EOS yok, birebir hizalı
+        tgt = plain_text_indices + [self.char2idx[self.PAD_TOKEN]] * (self.seq_len - len(plain_text_indices))
 
-        # Target (Output)
-        tgt_output = plain_text_indices + [self.char2idx[self.EOS_TOKEN]]
-        tgt_output += [self.char2idx[self.PAD_TOKEN]] * (self.seq_len - len(tgt_output))
-
-        return torch.tensor(src, dtype=torch.long), torch.tensor(tgt_input, dtype=torch.long), torch.tensor(tgt_output, dtype=torch.long)
+        return (
+            torch.tensor(src, dtype=torch.long),
+            torch.tensor(tgt, dtype=torch.long),
+            torch.tensor(tgt, dtype=torch.long),
+        )

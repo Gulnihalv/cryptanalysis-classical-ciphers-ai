@@ -3,33 +3,31 @@ import torch.nn as nn
 import pytorch_lightning as pl
 import torchmetrics
 
-from substitution_transformer import SubstitutionTransformer
+from substitution_transformer import SubstitutionEncoderModel
 
-class SubstitutionCipherSolverV8(pl.LightningModule):
+
+class SubstitutionCipherSolverV9(pl.LightningModule):
 
     def __init__(
         self,
         vocab_size: int = 33,
         embed_dim: int = 256,
         num_heads: int = 8,
-        num_encoder_layers: int = 4,
-        num_decoder_layers: int = 4,
+        num_layers: int = 6,
         ff_dim: int = 1024,
         dropout: float = 0.1,
         max_len: int = 512,
-        lr: float = 1e-4,
-        warmup_steps: int = 4000,
+        warmup_steps: int = 400,
         label_smoothing: float = 0.1,
     ):
         super().__init__()
         self.save_hyperparameters()
 
-        self.model = SubstitutionTransformer(
+        self.model = SubstitutionEncoderModel(
             vocab_size=vocab_size,
             embed_dim=embed_dim,
             num_heads=num_heads,
-            num_encoder_layers=num_encoder_layers,
-            num_decoder_layers=num_decoder_layers,
+            num_layers=num_layers,
             ff_dim=ff_dim,
             dropout=dropout,
             max_len=max_len,
@@ -42,52 +40,47 @@ class SubstitutionCipherSolverV8(pl.LightningModule):
             task="multiclass", num_classes=vocab_size, ignore_index=0
         )
 
-    def forward(self, src, tgt_input):
-        return self.model(src, tgt_input)
+    def forward(self, src):
+        return self.model(src)
 
-    @property
-    def teacher_forcing_ratio(self) -> float:
-        epoch_shifted = max(0, self.current_epoch - 5)
-        return max(0.0, 1.0 - epoch_shifted * 0.05)
+    # ── Training ─────────────────────────────────────────────────────────────
 
     def training_step(self, batch, batch_idx):
-        src, tgt_input, tgt_output = batch
-        
-        # ── Transformer için %100 Teacher Forcing (Paralel) ──────────
-        logits = self.model(src, tgt_input)  # [B, S, V]
+        src, _tgt_input, tgt_output = batch   # tgt_input artık kullanılmıyor
 
+        logits = self.model(src)               # [B, S, V]
         loss = self.loss_fn(
-            logits.reshape(-1, self.hparams.vocab_size), tgt_output.reshape(-1)
+            logits.reshape(-1, self.hparams.vocab_size),
+            tgt_output.reshape(-1),
         )
-        
         self.log("train_loss", loss, prog_bar=True)
         return loss
 
+    # ── Validation ───────────────────────────────────────────────────────────
+
     def validation_step(self, batch, batch_idx):
-        src, tgt_input, tgt_output = batch
+        src, _tgt_input, tgt_output = batch
 
-        # Teacher-forced loss & accuracy
-        logits = self.model(src, tgt_input)
+        logits = self.model(src)
         loss = self.loss_fn(
-            logits.reshape(-1, self.hparams.vocab_size), tgt_output.reshape(-1)
+            logits.reshape(-1, self.hparams.vocab_size),
+            tgt_output.reshape(-1),
         )
-        preds = logits.argmax(dim=-1)
-        tf_acc = self.accuracy(preds.reshape(-1), tgt_output.reshape(-1))
 
-        # Autoregressive (greedy) accuracy — the metric we really care about
-        with torch.no_grad():
-            generated = self.model.generate(src)
-            gen_acc = self.accuracy(generated.reshape(-1), tgt_output.reshape(-1))
+        # Direkt tahmin accuracy (= "gen_acc", exposure bias yok)
+        preds = logits.argmax(dim=-1)
+        acc = self.accuracy(preds.reshape(-1), tgt_output.reshape(-1))
 
         self.log("val_loss", loss, prog_bar=True, on_epoch=True)
-        self.log("val_tf_acc", tf_acc, prog_bar=True, on_epoch=True)
-        self.log("val_gen_acc", gen_acc, prog_bar=True, on_epoch=True)
+        self.log("val_acc",  acc,  prog_bar=True, on_epoch=True)
         return loss
+
+    # ── Optimizer: Noam Schedule ─────────────────────────────────────────────
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(
             self.parameters(),
-            lr=1.0, 
+            lr=1.0,            # Noam schedule LR'yi kendisi yönetir
             betas=(0.9, 0.98),
             eps=1e-9,
             weight_decay=1e-2,
@@ -108,6 +101,5 @@ class SubstitutionCipherSolverV8(pl.LightningModule):
                 "scheduler": scheduler,
                 "interval": "step",
                 "frequency": 1,
-                "strict": True,
             },
         }
