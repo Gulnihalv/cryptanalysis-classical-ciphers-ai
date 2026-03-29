@@ -8,7 +8,7 @@ from vigenere import VigenereBlindSolver
 def main():
     MAX_K_LEN = 12
     MIN_K_LEN = 3
-    BATCH_SIZE = 64
+    BATCH_SIZE = 128
     
     dm = VigenereDataModule(
         text_path="data/processed/final_dataset_shuffled.txt",
@@ -21,11 +21,12 @@ def main():
 
     model = VigenereBlindSolver(
         vocab_size=dm.dataset.crypto_vocab_size,
+        max_len=512,
         min_key_len=MIN_K_LEN,
         max_key_len=MAX_K_LEN,
-        d_model=256,
+        d_model=512,
         nhead=4,
-        num_layers=4
+        num_layers=6
     )
 
     checkpoint_callback = ModelCheckpoint(
@@ -45,7 +46,7 @@ def main():
     logger = TensorBoardLogger("tb_logs", name="key_recovery3")
 
     trainer = pl.Trainer(
-        accelerator="mps",
+        accelerator="auto",
         devices=1,
         max_epochs=150,
         callbacks=[checkpoint_callback, early_stop_callback],

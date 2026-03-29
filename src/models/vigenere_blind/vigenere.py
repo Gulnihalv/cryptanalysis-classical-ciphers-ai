@@ -12,8 +12,8 @@ class VigenereBlindSolver(pl.LightningModule):
         self.max_key_len = max_key_len
         self.num_classes = max_key_len - min_key_len + 1
         self.char_emb = nn.Embedding(vocab_size + 1, d_model, padding_idx=pad_idx)
-        #self.pos_emb = nn.Embedding(max_len, d_model)
-        #self.ic_temperature = nn.Parameter(torch.tensor([2.0]))
+        self.pos_emb = nn.Embedding(max_len, d_model)
+        self.ic_temperature = nn.Parameter(torch.tensor([20.0]))
 
         self.cycle_embs = nn.ModuleList([
             nn.Embedding(k, d_model) for k in range(min_key_len, max_key_len + 1)
@@ -38,8 +38,10 @@ class VigenereBlindSolver(pl.LightningModule):
     def forward(self, src):
         batch_size, seq_len = src.shape
         device = src.device
+        padding_mask = (src == self.pad_idx) 
+        
         ic_scores = self._compute_ic(src)
-        length_weights = F.softmax(ic_scores * 100, dim=-1)
+        length_weights = F.softmax(ic_scores * self.ic_temperature.clamp(min=1.0), dim=-1)
 
         self._last_length_weights = length_weights.detach()
 
@@ -52,8 +54,8 @@ class VigenereBlindSolver(pl.LightningModule):
             weight_k = length_weights[:, i].unsqueeze(1).unsqueeze(2) # [B, 1, 1]
             soft_cycle_emb += emb_k * weight_k
 
-        x = self.char_emb(src) + soft_cycle_emb
-        encoded = self.transformer(x)
+        x = self.char_emb(src) + self.pos_emb(positions) + soft_cycle_emb
+        encoded = self.transformer(x, src_key_padding_mask=padding_mask)
 
         return self.fc_out(encoded)
     
