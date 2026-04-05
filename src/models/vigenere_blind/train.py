@@ -25,25 +25,26 @@ def main():
         min_key_len=MIN_K_LEN,
         max_key_len=MAX_K_LEN,
         d_model=512,
-        nhead=4,
-        num_layers=6
+        nhead=8, 
+        num_layers=6,
+        lr=3e-4,
     )
 
     checkpoint_callback = ModelCheckpoint(
-        dirpath="checkpoints_blind3",
-        filename="predictor-{epoch:02d}-{val_acc:.3f}-{val_top2_acc:.3f}",
-        save_top_k=2,
-        monitor="val_acc",
+        dirpath="checkpoints_blind",
+        filename="predictor-{epoch:02d}-{val_ks_acc:.3f}-{val_pl_acc:.3f}",
+        save_top_k=3,
+        monitor="val_ks_acc",
         mode="max"
     )
 
     early_stop_callback = EarlyStopping(
-        monitor="val_acc",
+        monitor="val_ks_acc",
         patience=10,
         mode="max"
     )
 
-    logger = TensorBoardLogger("tb_logs", name="key_recovery3")
+    logger = TensorBoardLogger("tb_logs", name="newww")
 
     trainer = pl.Trainer(
         accelerator="auto",
