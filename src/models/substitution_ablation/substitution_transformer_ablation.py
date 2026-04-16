@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import math
 
 
@@ -22,6 +21,18 @@ class PositionalEncoding(nn.Module):
 
 
 class SubstitutionEncoderModel(nn.Module):
+    """
+    Ablation variant: NO frequency token — pure Transformer Encoder.
+
+    Cipher tokens
+        │
+        ├─► Embedding + Positional Encoding
+        │
+        ├─► Transformer Encoder (bi-directional, N layers)
+        │
+        └─► Linear projection → [B, S, vocab_size] logits
+    """
+
     def __init__(
         self,
         vocab_size: int = 33,
@@ -42,22 +53,14 @@ class SubstitutionEncoderModel(nn.Module):
         self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
         self.pos_encoding = PositionalEncoding(embed_dim, max_len, dropout)
 
-        # Global karakter frekansı
-        self.freq_encoder = nn.Sequential(
-            nn.Linear(vocab_size, embed_dim * 2),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(embed_dim * 2, embed_dim),
-        )
-
-        # Transformer Encoder
+        # ── Transformer Encoder ──────────────────────────────────────────────
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=embed_dim,
             nhead=num_heads,
             dim_feedforward=ff_dim,
             dropout=dropout,
             batch_first=True,
-            norm_first=True,
+            norm_first=True,   # Pre-LN: daha stabil
         )
         self.encoder = nn.TransformerEncoder(
             encoder_layer,
@@ -65,6 +68,7 @@ class SubstitutionEncoderModel(nn.Module):
             enable_nested_tensor=False,
         )
 
+        # ── Output projection ────────────────────────────────────────────────
         self.fc_out = nn.Linear(embed_dim, vocab_size)
 
         self._init_weights()
@@ -74,41 +78,24 @@ class SubstitutionEncoderModel(nn.Module):
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
 
-    def compute_global_stats(self, src: torch.Tensor) -> torch.Tensor:
-        """ karakter frekans histogramı. → [B, vocab_size]"""
-        one_hots = F.one_hot(src, num_classes=self.vocab_size).float()
-        mask = (src != self.PAD_IDX).float().unsqueeze(2)
-        total_counts = (one_hots * mask).sum(dim=1)
-        seq_lengths = mask.sum(dim=1).clamp(min=1)
-        return total_counts / seq_lengths
-
     def forward(self, src: torch.Tensor) -> torch.Tensor:
         """
-            src : [B, S]  cipher token indices
+        Args:
+            src    : [B, S]  cipher token indices
+        Returns:
             logits : [B, S, vocab_size]
         """
-        B, S = src.shape
-        device = src.device
+        # Padding mask: True olan pozisyonlar ignore edilir
         pad_mask = src == self.PAD_IDX  # [B, S]
 
-        # Frekans token'ı: [B, 1, E]
-        global_freqs = self.compute_global_stats(src)
-        freq_token = self.freq_encoder(global_freqs).unsqueeze(1)
-
-        # Cipher embedding + pozisyonel encoding: [B, S, E]
+        # Embedding + positional encoding: [B, S, E]
         src_emb = self.pos_encoding(self.embedding(src))
 
-        # Freq token'ı başa ekleniyor [B, S+1, E]
-        encoder_input = torch.cat([freq_token, src_emb], dim=1)
+        # Encoder: [B, S, E]
+        encoder_out = self.encoder(src_emb, src_key_padding_mask=pad_mask)
 
-        freq_pad = torch.zeros(B, 1, dtype=torch.bool, device=device)
-        full_pad_mask = torch.cat([freq_pad, pad_mask], dim=1)  # [B, S+1]
-
-        encoder_out = self.encoder(encoder_input, src_key_padding_mask=full_pad_mask)
-        token_out = encoder_out[:, 1:, :]
-
-        # [B, S, vocab_size]
-        return self.fc_out(token_out)
+        # Logit projeksiyon: [B, S, vocab_size]
+        return self.fc_out(encoder_out)
 
     @torch.no_grad()
     def generate(self, src: torch.Tensor) -> torch.Tensor:

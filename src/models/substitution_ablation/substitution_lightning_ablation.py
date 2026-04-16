@@ -3,7 +3,7 @@ import torch.nn as nn
 import pytorch_lightning as pl
 import torchmetrics
 
-from substitution_transformer import SubstitutionEncoderModel
+from substitution_transformer_ablation import SubstitutionEncoderModel
 
 
 class SubstitutionCipherSolverV9(pl.LightningModule):
@@ -46,7 +46,7 @@ class SubstitutionCipherSolverV9(pl.LightningModule):
     # ── Training ─────────────────────────────────────────────────────────────
 
     def training_step(self, batch, batch_idx):
-        src, _tgt_input, tgt_output = batch   # tgt_input artık kullanılmıyor
+        src, _tgt_input, tgt_output = batch
 
         logits = self.model(src)               # [B, S, V]
         loss = self.loss_fn(
@@ -74,10 +74,12 @@ class SubstitutionCipherSolverV9(pl.LightningModule):
         self.log("val_acc",  acc,  prog_bar=True, on_epoch=True)
         return loss
 
+    # ── Optimizer: Noam Schedule ─────────────────────────────────────────────
+
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(
             self.parameters(),
-            lr=1.0,            # Noam schedule LR'yi kendisi yönetir
+            lr=1.0,
             betas=(0.9, 0.98),
             eps=1e-9,
             weight_decay=1e-2,
