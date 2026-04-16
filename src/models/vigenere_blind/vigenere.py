@@ -18,9 +18,11 @@ class VigenereBlindSolver(pl.LightningModule):
         key_len_loss_weight=0.3,
         plain_loss_weight=0.5,
         ic_hard_epochs=10,
+        total_steps_override=None
     ):
         super().__init__()
         self.save_hyperparameters()
+        self.total_steps_override = total_steps_override
         self.pad_idx     = pad_idx
         self.min_key_len = min_key_len
         self.max_key_len = max_key_len
@@ -207,6 +209,9 @@ class VigenereBlindSolver(pl.LightningModule):
         self.log("ic_alpha",       alpha,   prog_bar=True,  on_step=False, on_epoch=True)
         self.log("ic_temperature", self.ic_temperature.item(), prog_bar=False, on_step=False, on_epoch=True)
 
+        current_lr = self.optimizers().param_groups[0]['lr']
+        self.log("lr", current_lr, prog_bar=True, on_step=False, on_epoch=True)
+
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -229,11 +234,18 @@ class VigenereBlindSolver(pl.LightningModule):
             betas=(0.9, 0.98),
             eps=1e-9,
         )
+
+        total_steps = (
+            self.total_steps_override 
+            if self.total_steps_override 
+            else self.trainer.estimated_stepping_batches
+        )
+
         scheduler = {
             "scheduler": torch.optim.lr_scheduler.OneCycleLR(
                 optimizer,
                 max_lr=self.hparams.lr,
-                total_steps=self.trainer.estimated_stepping_batches,
+                total_steps=total_steps,
                 pct_start=0.1,
                 anneal_strategy="cos",
                 div_factor=25,
