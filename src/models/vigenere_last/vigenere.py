@@ -27,7 +27,6 @@ class VigenereBlindSolver(pl.LightningModule):
         self.min_key_len = min_key_len
         self.max_key_len = max_key_len
 
-        # --- Embedding katmanları ---
         self.char_emb = nn.Embedding(vocab_size + 1, d_model, padding_idx=pad_idx)
         self.pos_emb  = nn.Embedding(max_len, d_model)
 
@@ -46,7 +45,7 @@ class VigenereBlindSolver(pl.LightningModule):
 
         # --- Output head'ler ---
         self.fc_out       = nn.Linear(d_model, vocab_size)   # plaintext tahmini
-        self.validity_head = nn.Linear(d_model, 1)           # bu key_len doğru mu?
+        self.validity_head = nn.Linear(d_model, 1)           # key_len doğru mu kontrolü
 
     def _get_cycle_emb(self, seq_len: int, key_len: torch.Tensor, device) -> torch.Tensor:
         B = key_len.size(0)
@@ -55,7 +54,7 @@ class VigenereBlindSolver(pl.LightningModule):
         cycle_emb = torch.zeros(B, seq_len, self.hparams.d_model, device=device)
 
         for i, k in enumerate(range(self.min_key_len, self.max_key_len + 1)):
-            mask = (key_len == k)           # [B] — bu key_len'e sahip örnekler
+            mask = (key_len == k)
             if not mask.any():
                 continue
             cycle_pos = positions % k       # [1, L]
@@ -94,17 +93,15 @@ class VigenereBlindSolver(pl.LightningModule):
         B = src.size(0)
         device = src.device
 
-        # --- Yanlış key_len enjeksiyonu (sadece training) ---
+        #  Yanlış key_len 
         if inject_wrong_key:
             # Her örnek için bağımsız karar ver
             wrong_mask = torch.rand(B, device=device) < self.WRONG_KEY_PROB  # [B]
 
             if wrong_mask.any():
-                # Yanlış key_len üret: true_key_len'den farklı rastgele bir değer
                 rand_keys = torch.randint(
                     self.min_key_len, self.max_key_len + 1, (B,), device=device
                 )
-                # Eğer rastgele değer true ile aynıysa kaydır
                 same = rand_keys == true_key_len
                 rand_keys[same] = (rand_keys[same] - self.min_key_len + 1) % \
                                    (self.max_key_len - self.min_key_len + 1) + self.min_key_len
@@ -113,18 +110,15 @@ class VigenereBlindSolver(pl.LightningModule):
             else:
                 key_len_input = true_key_len
 
-            # Validity label: doğru key_len verildi mi?
             validity_label = (~wrong_mask).float()  # [B]
         else:
             key_len_input  = true_key_len
             validity_label = torch.ones(B, device=device)
 
-        # --- Forward ---
+        # Forward 
         plaintext_logits, validity_logit = self(src, key_len_input)  # [B,L,V], [B]
 
-        # --- Plaintext CE Loss ---
-        # Yanlış key_len verilen örneklerde plaintext loss hesaplama
-        # (model çöp üretmeli, ama biz onu plaintext'e zorlamayalım)
+        # Plaintext CE Loss
         if inject_wrong_key and wrong_mask.any():
             correct_mask = ~wrong_mask  # [B]
             if correct_mask.any():
@@ -142,13 +136,13 @@ class VigenereBlindSolver(pl.LightningModule):
                 ignore_index=self.pad_idx,
             )
 
-        # --- Validity BCE Loss ---
+        # Validity BCE Loss
         bce_loss = F.binary_cross_entropy_with_logits(validity_logit, validity_label)
 
-        # --- Toplam Loss ---
+        # Toplam Loss
         loss = ce_loss + self.VALIDITY_WEIGHT * bce_loss
 
-        # --- Accuracy (sadece doğru key_len örneklerinde) ---
+        # Accuracy (sadece doğru key_len örneklerinde)
         with torch.no_grad():
             if inject_wrong_key:
                 correct_mask = ~wrong_mask
@@ -182,7 +176,6 @@ class VigenereBlindSolver(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        # Validasyonda yanlış key_len yok — gerçek performansı ölç
         loss, ce_loss, bce_loss, acc, val_acc = self._shared_step(
             batch, inject_wrong_key=False
         )
